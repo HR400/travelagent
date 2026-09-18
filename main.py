@@ -63,8 +63,8 @@ def main() -> None:
     parser.add_argument(
         "--max-steps",
         type=int,
-        default=12,
-        help="Maximum ReAct iterations allowed (default: 12)",
+        default=15,
+        help="Maximum ReAct iterations allowed (default: 15)",
     )
     parser.add_argument(
         "--quiet",

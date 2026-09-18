@@ -12,7 +12,7 @@ from openai import APIError, AuthenticationError, OpenAI, RateLimitError
 from tools import TOOL_REGISTRY, TOOL_SPECS, calculate
 
 HARD_CAP = 800.0
-DEFAULT_MAX_STEPS = 12
+DEFAULT_MAX_STEPS = 15
 
 SYSTEM_PROMPT = """You are a travel planner that uses a strict ReAct loop.
 
@@ -30,6 +30,7 @@ Action: <tool name>
 Action Input: <tool input>
 
 Wait for the real Observation after each Action. Do not make up fake observations or simulate future steps.
+Efficiency tip: after 2-3 initial searches for baseline rates, run calculate to test your budget breakdown. If intercepted by the budget observer, adjust line items and recalculate.
 
 When you have gathered all details and verified with calculate that the total is <= $800, respond:
 
@@ -266,6 +267,16 @@ def get_client_and_model(model_override: str | None = None) -> tuple[OpenAI, str
     return client, model
 
 
+def _prepare_messages_for_llm(messages: list[dict[str, str]], max_recent: int = 6) -> list[dict[str, str]]:
+    """Preserve system prompt and initial goal while windowing recent turns to prevent token limit errors."""
+    if len(messages) <= max_recent + 2:
+        return messages
+    system_msg = messages[0]
+    goal_msg = messages[1]
+    recent_msgs = messages[-max_recent:]
+    return [system_msg, goal_msg] + recent_msgs
+
+
 def run_react(
     user_goal: str,
     *,
@@ -284,9 +295,10 @@ def run_react(
 
     for step in range(1, max_steps + 1):
         try:
+            payload = _prepare_messages_for_llm(messages)
             response = client.chat.completions.create(
                 model=resolved_model,
-                messages=messages,
+                messages=payload,
                 temperature=0.2,
                 max_tokens=800,
             )
