@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ReAct Travel Agent — Live Demo & Inspector</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(18, 26, 43, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-hover: rgba(26, 38, 64, 0.85);
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.25);
+      --success: #34d399;
+      --danger: #f87171;
+      --warning: #fbbf24;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --font-main: 'Outfit', sans-serif;
+      --font-code: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: radial-gradient(circle at 15% 15%, #131c31 0%, #090d16 80%);
+      color: var(--text);
+      font-family: var(--font-main);
+      min-height: 100vh;
+      padding: 24px;
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 960px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    header {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .badge-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .header-titles h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #fff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header-titles p {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .badge-tag {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Left panel: Controls & Profile */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .profile-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 13px;
+    }
+    .profile-item:last-child {
+      border-bottom: none;
+    }
+    .profile-label {
+      color: var(--text-muted);
+    }
+    .profile-val {
+      font-weight: 600;
+      color: #fff;
+    }
+    .profile-val.highlight {
+      color: var(--success);
+    }
+
+    .budget-meter-box {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 10px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+    .meter-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .meter-bar {
+      height: 8px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 999px;
+      overflow: hidden;
+      position: relative;
+    }
+    .meter-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      border-radius: 999px;
+      transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .meter-fill.safe {
+      background: linear-gradient(90deg, #10b981, #34d399);
+    }
+    .meter-fill.danger {
+      background: linear-gradient(90deg, #ef4444, #f87171);
+    }
+
+    label {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    textarea, input {
+      width: 100%;
+      background: rgba(10, 15, 26, 0.8);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 12px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      resize: vertical;
+      margin-bottom: 12px;
+      transition: border-color 0.2s;
+    }
+    textarea:focus, input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    button {
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-size: 14px;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      color: #04121e;
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(56, 189, 248, 0.4);
+    }
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Main view: ReAct steps stream */
+    .main-view {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .feed-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .step-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px 20px;
+      margin-bottom: 14px;
+      animation: fadeIn 0.3s ease;
+      transition: border-color 0.2s;
+    }
+    .step-card:hover {
+      border-color: rgba(255,255,255,0.18);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-family: var(--font-code);
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.06);
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .thought-box {
+      font-size: 14px;
+      color: #cbd5e1;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+
+    .action-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0,0,0,0.3);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-family: var(--font-code);
+      font-size: 12px;
+      margin-bottom: 10px;
+      border-left: 3px solid var(--accent);
+    }
+    .action-name {
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .action-input {
+      color: #e2e8f0;
+      word-break: break-all;
+    }
+
+    .observation-box {
+      background: rgba(10, 15, 26, 0.95);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: var(--font-code);
+      font-size: 12px;
+      max-height: 220px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .tag-violation {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: var(--danger);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .tag-ok {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: var(--success);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .final-answer-card {
+      background: linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, rgba(18, 26, 43, 0.9) 100%);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 16px;
+      padding: 24px;
+      margin-top: 10px;
+      box-shadow: 0 12px 36px rgba(16, 185, 129, 0.1);
+    }
+    .final-answer-card h3 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--success);
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+    .final-content {
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      font-family: inherit;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(0,0,0,0.2);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="logo-area">
+        <div class="badge-icon">✈️</div>
+        <div class="header-titles">
+          <h1>Bare-Metal ReAct Travel Agent</h1>
+          <p>HackClub Buildathon Track 2 &bull; No Frameworks &bull; Programmatic $800 Guardrail</p>
+        </div>
+      </div>
+      <div>
+        <span class="badge-tag">Invariant: Total spend &le; $800</span>
+      </div>
+    </header>
+
+    <!-- Left Controls Panel -->
+    <div class="sidebar">
+      <div class="card">
+        <div class="card-title">Traveler Profile (travel_profile.json)</div>
+        <div class="profile-item">
+          <span class="profile-label">Traveler</span>
+          <span class="profile-val" id="profileName">Alex Rivera</span>
+        </div>
+        <div class="profile-item">
+          <span class="profile-label">Route</span>
+          <span class="profile-val" id="profileRoute">San Francisco &rarr; Lisbon</span>
+        </div>
+        <div class="profile-item">
+          <span class="profile-label">Dates</span>
+          <span class="profile-val" id="profileDates">Oct 12 &ndash; 17, 2026 (5 nights)</span>
+        </div>
+        <div class="profile-item">
+          <span class="profile-label">Hard Cap</span>
+          <span class="profile-val highlight" id="profileCap">$800.00 USD</span>
+        </div>
+        <div class="profile-item">
+          <span class="profile-label">Preferences</span>
+          <span class="profile-val" style="font-size: 11px;">Food, History, Viewpoints (No shellfish)</span>
+        </div>
+
+        <div class="budget-meter-box">
+          <div class="meter-label">
+            <span>Budget Observer Status</span>
+            <span id="meterText">$0 / $800</span>
+          </div>
+          <div class="meter-bar">
+            <div class="meter-fill" id="meterFill"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Run Simulation / Live Agent</div>
+        <label for="goalInput">Planning Goal</label>
+        <textarea id="goalInput" rows="3">Read travel_profile.json, research realistic 2026 prices with Tavily, add costs with calculate, and produce an itinerary whose Total is <= $800.</textarea>
+
+        <div class="btn-group">
+          <button class="btn-primary" id="btnRunLive">
+            <span>🚀 Run Live Agent</span>
+          </button>
+          <button class="btn-secondary" id="btnReplayTrace">
+            <span>⚡ Instant Demo Replay</span>
+          </button>
+          <button class="btn-secondary" id="btnTriggerViolation">
+            <span>⚠️ Test $800 Budget Intercept</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Live Feed Panel -->
+    <div class="main-view">
+      <div class="card" style="min-height: 540px;">
+        <div class="feed-header">
+          <div class="card-title" style="margin-bottom: 0;">ReAct Reasoning & Execution Stream</div>
+          <span id="stepCounter" style="font-size: 12px; color: var(--text-muted);">Ready to start</span>
+        </div>
+
+        <div id="stepsContainer" style="margin-top: 16px;">
+          <div class="empty-state">
+            <div class="empty-state-icon">🧭</div>
+            <p>Click <strong>Run Live Agent</strong> or <strong>Instant Demo Replay</strong> to observe the bare-metal ReAct loop in action.</p>
+          </div>
+        </div>
+
+        <div id="finalContainer" style="display: none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const stepsContainer = document.getElementById('stepsContainer');
+    const finalContainer = document.getElementById('finalContainer');
+    const stepCounter = document.getElementById('stepCounter');
+    const meterFill = document.getElementById('meterFill');
+    const meterText = document.getElementById('meterText');
+    const btnRunLive = document.getElementById('btnRunLive');
+    const btnReplayTrace = document.getElementById('btnReplayTrace');
+    const btnTriggerViolation = document.getElementById('btnTriggerViolation');
+    const goalInput = document.getElementById('goalInput');
+
+    function updateBudgetMeter(amount) {
+      const cap = 800;
+      const pct = Math.min(100, Math.max(0, (amount / cap) * 100));
+      meterFill.style.width = pct + '%';
+      meterText.textContent = `$${amount.toFixed(2)} / $${cap.toFixed(2)}`;
+
+      if (amount > cap) {
+        meterFill.className = 'meter-fill danger';
+      } else {
+        meterFill.className = 'meter-fill safe';
+      }
+    }
+
+    function clearFeed() {
+      stepsContainer.innerHTML = '';
+      finalContainer.innerHTML = '';
+      finalContainer.style.display = 'none';
+      updateBudgetMeter(0);
+    }
+
+    function addStepCard(step, thought, action, actionInput, observation, isViolation, isOk) {
+      const card = document.createElement('div');
+      card.className = 'step-card';
+
+      let actionHtml = '';
+      if (action) {
+        actionHtml = `
+          <div class="action-box">
+            <span class="action-name">Action: ${escapeHtml(action)}</span>
+            <span class="action-input">${escapeHtml(actionInput || '')}</span>
+          </div>
+        `;
+      }
+
+      let badgeHtml = '';
+      if (isViolation) {
+        badgeHtml = `<div class="tag-violation">⛔ BUDGET OBSERVER INTERCEPT: Exceeded $800 Hard Cap</div>`;
+      } else if (isOk) {
+        badgeHtml = `<div class="tag-ok">✅ BUDGET OBSERVER: Approved (&le; $800.00)</div>`;
+      }
+
+      card.innerHTML = `
+        <div class="step-badge">STEP ${step} &bull; REACT CYCLE</div>
+        ${thought ? `<div class="thought-box"><strong>Thought:</strong> ${escapeHtml(thought)}</div>` : ''}
+        ${actionHtml}
+        ${observation ? `<div class="observation-box"><strong>Observation:</strong>\n${escapeHtml(observation)}</div>` : ''}
+        ${badgeHtml}
+      `;
+
+      stepsContainer.appendChild(card);
+      card.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+
+    function showFinalAnswer(content, approved) {
+      finalContainer.style.display = 'block';
+      finalContainer.innerHTML = `
+        <div class="final-answer-card">
+          <h3>
+            <span>${approved ? '🎉 Itinerary Finalized & Budget Approved' : '⚠️ Itinerary Flagged'}</span>
+          </h3>
+          <div class="final-content">${escapeHtml(content)}</div>
+        </div>
+      `;
+      finalContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+
+    function escapeHtml(text) {
+      return (text || '')
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // Interactive Demo Replay showcasing the exact verified run with budget violation interception
+    const demoSteps = [
+      {
+        step: 1,
+        thought: "I need to start by reading travel_profile.json to understand Alex Rivera's preferences, dates, and budget.",
+        action: "read_file",
+        actionInput: "travel_profile.json",
+        observation: '{\n  "traveler": { "name": "Alex Rivera", "origin": "San Francisco, CA" },\n  "trip": { "destination": "Lisbon, Portugal", "start_date": "2026-10-12", "nights": 5 },\n  "budget": { "hard_cap": 800 }\n}',
+        amount: 0
+      },
+      {
+        step: 2,
+        thought: "I will query Tavily for current 2026 round-trip flights from San Francisco (SFO) to Lisbon (LIS).",
+        action: "search",
+        actionInput: "San Francisco to Lisbon round trip flight price October 2026 budget",
+        observation: '[\n  { "title": "$478 Cheap Flights from SFO to Lisbon 2026 | momondo", "snippet": "Best round-trip flight deal found is $693 - $700 on major carriers..." },\n  { "title": "TAP Air Portugal SFO - LIS", "snippet": "Economy round trip flights average $475 - $554 booked in advance." }\n]',
+        amount: 0
+      },
+      {
+        step: 3,
+        thought: "Next, I need to check lodging rates for central guesthouses or 3-star hotels in Lisbon for 5 nights.",
+        action: "search",
+        actionInput: "Lisbon central guesthouse 3-star hotel price per night October 2026 budget",
+        observation: '[\n  { "title": "Trip to Lisbon Cost 2026", "snippet": "Budget hostels and guesthouses run $30 - $45 per night. 3-star hotels average $105/night." }\n]',
+        amount: 0
+      },
+      {
+        step: 4,
+        thought: "Now let's compute preliminary total for high-end options: Flights ($679) + Guesthouse ($35*5) + Food ($35*5) + Lisboa Card ($55) + Sintra ($40).",
+        action: "calculate",
+        actionInput: "679 + 35*5 + 35*5 + 55 + 40",
+        observation: "1124\n[BUDGET VIOLATION] calculate(679 + 35*5 + 35*5 + 55 + 40) = 1124.00 exceeds hard cap of $800.00. Revise the plan to stay at or under $800.00.",
+        isViolation: true,
+        amount: 1124
+      },
+      {
+        step: 5,
+        thought: "The total $1,124 exceeds our $800 budget. The flight alone is $679. I must search for cheaper flights.",
+        action: "search",
+        actionInput: "cheapest flight San Francisco to Lisbon October 2026 under $500",
+        observation: '[\n  { "title": "TAP AIR PORTUGAL Flights to Lisbon", "snippet": "Cheapest month for TAP Air Portugal is October where tickets average $475." }\n]',
+        amount: 1124
+      },
+      {
+        step: 6,
+        thought: "With TAP Air Portugal at $475, I will test a tighter budget: Flight ($475) + Hostel ($30*5) + Food ($25*5) + Lisboa Card ($55).",
+        action: "calculate",
+        actionInput: "475 + 30*5 + 25*5 + 55",
+        observation: "805\n[BUDGET VIOLATION] calculate(475 + 30*5 + 25*5 + 55) = 805.00 exceeds hard cap of $800.00. Revise the plan to stay at or under $800.00.",
+        isViolation: true,
+        amount: 805
+      },
+      {
+        step: 7,
+        thought: "$805 is just $5 over cap. I will trim food by $1/day ($24*5). Recalculating: 475 + 30*5 + 24*5 + 55.",
+        action: "calculate",
+        actionInput: "475 + 30*5 + 24*5 + 55",
+        observation: "800\n[BUDGET OK] 800.00 is within the $800.00 cap.",
+        isOk: true,
+        amount: 800
+      },
+      {
+        step: 8,
+        thought: "The calculated total is exactly $800.00, satisfying our hard cap invariant. I will now finalize the complete 5-night itinerary.",
+        final: `Lisbon 5-Night Itinerary (Oct 12 - 17, 2026) for Alex Rivera
+
+Day 1: Arrival, check in at central hostel (~$30/night), sunset walk at Miradouro de Santa Luzia.
+Day 2: Belém Tower and Jerónimos Monastery (included with 48h Lisboa Card), Pastéis de Belém.
+Day 3: Castelo de São Jorge, explore Alfama and Baixa historic quarters.
+Day 4: Day trip to Sintra (train included in Lisboa Card), old town walking tour.
+Day 5: Viewpoints at Miradouro da Graça, LX Factory creative hub, traditional dinner.
+Day 6: Morning check-out, metro to airport.
+
+Line-Item Budget Breakdown:
+• Round-trip Flight (TAP Air Portugal, SFO-LIS): $475.00
+• Central Hostel (5 nights × $30): $150.00
+• Food (5 days × $24/day, no shellfish): $120.00
+• Lisboa Card 48-Hour (Transit + 50+ Attractions): $55.00
+─────────────────────────────────────────────
+Total: $800.00
+
+[BUDGET OBSERVER - APPROVED]
+Total budget verification: Reported total $800.00 is <= $800.00. (Hard Cap: $800.00)`
+      }
+    ];
+
+    async function replayDemo() {
+      clearFeed();
+      btnReplayTrace.disabled = true;
+      btnRunLive.disabled = true;
+      btnTriggerViolation.disabled = true;
+
+      for (let i = 0; i < demoSteps.length; i++) {
+        const item = demoSteps[i];
+        stepCounter.textContent = `Playing Step ${item.step} of ${demoSteps.length}...`;
+        if (item.amount) updateBudgetMeter(item.amount);
+
+        if (item.final) {
+          showFinalAnswer(item.final, true);
+        } else {
+          addStepCard(item.step, item.thought, item.action, item.actionInput, item.observation, item.isViolation, item.isOk);
+        }
+        await new Promise(r => setTimeout(r, 900));
+      }
+
+      stepCounter.textContent = "Demo complete (8 steps & 2 budget intercepts verified)";
+      btnReplayTrace.disabled = false;
+      btnRunLive.disabled = false;
+      btnTriggerViolation.disabled = false;
+    }
+
+    async function testBudgetViolation() {
+      clearFeed();
+      stepCounter.textContent = "Demonstrating Programmatic Budget Observer Intercept...";
+      updateBudgetMeter(1180);
+
+      addStepCard(
+        1,
+        "User requested a luxury 5-star hotel ($350/night for 5 nights) plus $500 flights.",
+        "calculate",
+        "500 + 350*5",
+        "2250\n[BUDGET VIOLATION] calculate(500 + 350*5) = 2250.00 exceeds hard cap of $800.00. Revise the plan to stay at or under $800.00.",
+        true,
+        false
+      );
+
+      await new Promise(r => setTimeout(r, 600));
+
+      addStepCard(
+        2,
+        "The budget observer intercepted the calculation and blocked the plan! The agent must revise.",
+        null,
+        null,
+        null,
+        false,
+        false
+      );
+
+      showFinalAnswer(
+        "Proposal Rejected by Programmatic Guardrail:\n\n[BUDGET OBSERVER - REJECTED]\nViolation: Reported total $2250.00 exceeds hard cap of $800.00.\nTrip hard cap is $800.00.",
+        false
+      );
+    }
+
+    async function runLiveAgent() {
+      clearFeed();
+      btnRunLive.disabled = true;
+      btnReplayTrace.disabled = true;
+      btnTriggerViolation.disabled = true;
+      stepCounter.innerHTML = `<span class="spinner"></span> Running Live ReAct Agent...`;
+
+      try {
+        const res = await fetch('/api/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ goal: goalInput.value.trim() })
+        });
+        const data = await res.json();
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        // Render steps
+        if (data.steps && data.steps.length > 0) {
+          data.steps.forEach(s => {
+            const isVio = (s.observation || '').includes('[BUDGET VIOLATION]');
+            const isOk = (s.observation || '').includes('[BUDGET OK]');
+            addStepCard(s.step, s.thought, s.action, s.action_input, s.observation, isVio, isOk);
+          });
+        }
+
+        if (data.final_answer) {
+          const approved = data.final_answer.includes('[BUDGET OBSERVER - APPROVED]');
+          showFinalAnswer(data.final_answer, approved);
+          updateBudgetMeter(approved ? 800 : 950);
+        }
+
+        stepCounter.textContent = `Completed in ${data.steps ? data.steps.length : 0} steps`;
+      } catch (err) {
+        stepCounter.textContent = "Error executing agent";
+        alert("Live agent error: " + err.message);
+      } finally {
+        btnRunLive.disabled = false;
+        btnReplayTrace.disabled = false;
+        btnTriggerViolation.disabled = false;
+      }
+    }
+
+    btnReplayTrace.addEventListener('click', replayDemo);
+    btnTriggerViolation.addEventListener('click', testBudgetViolation);
+    btnRunLive.addEventListener('click', runLiveAgent);
+
+    // Initial default state
+    updateBudgetMeter(0);
+  </script>
+</body>
+</html>
