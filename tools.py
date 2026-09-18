@@ -6,11 +6,27 @@ import ast
 import json
 import operator
 import os
+from functools import lru_cache
 from pathlib import Path
+from typing import Optional
 
 from tavily import TavilyClient
 
 PROJECT_ROOT = Path(__file__).resolve().parent
+
+# Cache for Tavily client to avoid repeated initialization
+_tavily_client: Optional[TavilyClient] = None
+
+
+def _get_tavily_client() -> Optional[TavilyClient]:
+    """Get or create cached Tavily client instance."""
+    global _tavily_client
+    if _tavily_client is None:
+        api_key = os.environ.get("TAVILY_API_KEY")
+        if api_key:
+            _tavily_client = TavilyClient(api_key=api_key)
+    return _tavily_client
+
 
 _BIN_OPS = {
     ast.Add: operator.add,
@@ -72,10 +88,9 @@ def tavily_search(query: str, max_results: int = 3) -> str:
     """Search the web with Tavily and return a compact JSON list of results."""
     try:
         clean_query = query.strip().strip("'\"`")
-        api_key = os.environ.get("TAVILY_API_KEY")
-        if not api_key:
+        client = _get_tavily_client()
+        if not client:
             return "ERROR: TAVILY_API_KEY is not set"
-        client = TavilyClient(api_key=api_key)
         payload = client.search(query=clean_query, max_results=max_results)
         results = []
         for item in payload.get("results", [])[:max_results]:

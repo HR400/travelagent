@@ -6,7 +6,7 @@ import os
 import re
 import time
 from dataclasses import dataclass, field
-from functools import wraps
+from functools import lru_cache, wraps
 from typing import Callable
 
 from openai import APIError, AuthenticationError, OpenAI, RateLimitError
@@ -192,26 +192,63 @@ def _tool_list() -> str:
     return "\n".join(lines)
 
 
+# Pre-compile regex patterns for performance
+_FIELD_LABELS = ("Thought", "Action", "Action Input", "Final Answer", "Observation")
+
+def _build_field_patterns(label: str, labels_joined: str):
+    """Build regex patterns for extracting a field from text."""
+    block_pattern = re.compile(
+        r"(?:^|\n)\s*(?:\*{1,2}|#{1,6}\s*)?" + re.escape(label) +
+        r"\s*(?:\*{1,2})?\s*:\s*(?:\*{1,2})?\s*(.*?)"
+        r"(?=\n\s*(?:\*{1,2}|#{1,6}\s*)?(?:" + labels_joined + r")\s*(?:\*{1,2})?\s*:|"
+        r"\s+(?:\*{1,2}|#{1,6}\s*)?(?:" + labels_joined + r")\s*(?:\*{1,2})?\s*:|\Z)",
+        re.IGNORECASE | re.DOTALL
+    )
+    inline_pattern = re.compile(
+        r"\b" + re.escape(label) +
+        r"\s*(?:\*{1,2})?\s*:\s*(?:\*{1,2})?\s*(.*?)"
+        r"(?=\n\s*(?:\*{1,2}|#{1,6}\s*)?(?:" + labels_joined + r")\s*(?:\*{1,2})?\s*:|"
+        r"\s+(?:\*{1,2}|#{1,6}\s*)?(?:" + labels_joined + r")\s*(?:\*{1,2})?\s*:|\Z)",
+        re.IGNORECASE | re.DOTALL
+    )
+    return block_pattern, inline_pattern
+
+_labels_joined = "|".join(_FIELD_LABELS)
+_FIELD_PATTERNS = {label: _build_field_patterns(label, _labels_joined) for label in _FIELD_LABELS}
+_MARKDOWN_CLEANUP_RE = re.compile(r"^\*\*|\*\*$")
+
+
 def _field(text: str, label: str) -> str | None:
     """Extract a named field from LLM response supporting plain and markdown tags, with or without newlines."""
-    pattern = (
-        r"(?:^|\n)\s*(?:\*{1,2}|#{1,6}\s*)?"
-        + re.escape(label)
-        + r"\s*(?:\*{1,2})?\s*:\s*(?:\*{1,2})?\s*(.*?)(?=\n\s*(?:\*{1,2}|#{1,6}\s*)?(?:Thought|Action|Action Input|Observation|Final Answer)\s*(?:\*{1,2})?\s*:|\s+(?:\*{1,2}|#{1,6}\s*)?(?:Thought|Action|Action Input|Observation|Final Answer)\s*(?:\*{1,2})?\s*:|\Z)"
-    )
-    match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
-    if not match:
-        pattern_inline = (
-            r"\b"
+    patterns = _FIELD_PATTERNS.get(label)
+    if not patterns:
+        # Fallback for unknown labels - build pattern on the fly
+        pattern = (
+            r"(?:^|\n)\s*(?:\*{1,2}|#{1,6}\s*)?"
             + re.escape(label)
             + r"\s*(?:\*{1,2})?\s*:\s*(?:\*{1,2})?\s*(.*?)(?=\n\s*(?:\*{1,2}|#{1,6}\s*)?(?:Thought|Action|Action Input|Observation|Final Answer)\s*(?:\*{1,2})?\s*:|\s+(?:\*{1,2}|#{1,6}\s*)?(?:Thought|Action|Action Input|Observation|Final Answer)\s*(?:\*{1,2})?\s*:|\Z)"
         )
-        match = re.search(pattern_inline, text, re.IGNORECASE | re.DOTALL)
+        match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+        if not match:
+            pattern_inline = (
+                r"\b"
+                + re.escape(label)
+                + r"\s*(?:\*{1,2})?\s*:\s*(?:\*{1,2})?\s*(.*?)(?=\n\s*(?:\*{1,2}|#{1,6}\s*)?(?:Thought|Action|Action Input|Observation|Final Answer)\s*(?:\*{1,2})?\s*:|\s+(?:\*{1,2}|#{1,6}\s*)?(?:Thought|Action|Action Input|Observation|Final Answer)\s*(?:\*{1,2})?\s*:|\Z)"
+            )
+            match = re.search(pattern_inline, text, re.IGNORECASE | re.DOTALL)
+            if not match:
+                return None
+        val = match.group(1).strip()
+        return re.sub(r"^\*\*|\*\*$", "", val).strip()
+    
+    block_pattern, inline_pattern = patterns
+    match = block_pattern.search(text)
+    if not match:
+        match = inline_pattern.search(text)
         if not match:
             return None
     val = match.group(1).strip()
-    val = re.sub(r"^\*\*|\*\*$", "", val).strip()
-    return val
+    return _MARKDOWN_CLEANUP_RE.sub("", val).strip()
 
 
 def _parse_react(text: str) -> tuple[str | None, str | None, str | None]:
@@ -355,7 +392,14 @@ def _prepare_messages_for_llm(messages: list[dict[str, str]], max_recent: int = 
     system_msg = messages[0]
     goal_msg = messages[1]
     recent_msgs = messages[-max_recent:]
+    # Pre-compute lengths to avoid redundant calculations
     return [system_msg, goal_msg] + recent_msgs
+
+
+@lru_cache(maxsize=32)
+def _get_system_prompt(hard_cap: float = HARD_CAP) -> str:
+    """Cache the system prompt to avoid repeated string formatting."""
+    return get_system_prompt(hard_cap).format(tool_list=_tool_list())
 
 
 def run_react(
@@ -399,8 +443,9 @@ def run_react(
     fallback_models = ["openai/gpt-oss-120b", "qwen/qwen3.8-27b"] if is_groq else []
     candidate_models = [resolved_model] + [m for m in fallback_models if m != resolved_model]
 
+    # Use cached system prompt for performance
     messages: list[dict[str, str]] = [
-        {"role": "system", "content": get_system_prompt(effective_hard_cap).format(tool_list=_tool_list())},
+        {"role": "system", "content": _get_system_prompt(effective_hard_cap)},
         {"role": "user", "content": user_goal},
     ]
 
