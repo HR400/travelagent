@@ -1,0 +1,25 @@
+{
+  "traveler": {
+    "name": "Alex Rivera",
+    "origin": "San Francisco, CA",
+    "party_size": 1
+  },
+  "trip": {
+    "destination": "Lisbon, Portugal",
+    "start_date": "2026-10-12",
+    "end_date": "2026-10-17",
+    "nights": 5
+  },
+  "budget": {
+    "currency": "USD",
+    "hard_cap": 800,
+    "rule": "Total spend must be less than or equal to $800"
+  },
+  "preferences": {
+    "pace": "walkable neighborhoods, one major outing per day",
+    "lodging": "central guesthouse or 3-star hotel",
+    "interests": ["food", "history", "viewpoints"],
+    "dietary": ["no shellfish"],
+    "avoid": ["all-inclusive resorts", "overnight buses"]
+  }
+}
