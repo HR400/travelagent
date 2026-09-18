@@ -1,3 +1,25 @@
-Nothing should be ignored in this case, as the only added file is README.md, which is a source/config file. No build artifacts, dependencies, or temporary files are present in the changes.
+```
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 
-Therefore, the output is empty.
+# Dependencies
+venv/
+.venv/
+.env
+.env.local
+*.env.*
+
+# Logs
+*.log
+
+# Coverage
+.coverage
+coverage/
+htmlcov/
+
+# Tests
+.pytest_cache/
+```

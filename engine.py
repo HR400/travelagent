@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from dataclasses import dataclass, field
+from functools import wraps
 from typing import Callable
 
 from openai import APIError, AuthenticationError, OpenAI, RateLimitError
 
+from config import Config, get_config
+from logging_config import get_logger, setup_logging
 from tools import TOOL_REGISTRY, TOOL_SPECS, calculate
+
+logger = get_logger(__name__)
 
 HARD_CAP = 800.0
 DEFAULT_MAX_STEPS = 15
@@ -227,6 +233,42 @@ def _dispatch(action: str, action_input: str, observer: BudgetObserver) -> str:
     return observer.observe_text(observation)
 
 
+def retry_with_backoff(
+    max_retries: int = 3,
+    backoff_factor: float = 2.0,
+    initial_delay: float = 1.0,
+    exceptions: tuple[type[Exception], ...] = (RateLimitError, APIError),
+):
+    """Decorator for retrying API calls with exponential backoff."""
+
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs) -> any:
+            last_exception = None
+            delay = initial_delay
+
+            for attempt in range(max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as exc:
+                    last_exception = exc
+                    if attempt == max_retries:
+                        break
+
+                    logger.warning(
+                        f"API call failed (attempt {attempt + 1}/{max_retries + 1}): {exc}. "
+                        f"Retrying in {delay:.1f}s..."
+                    )
+                    time.sleep(delay)
+                    delay *= backoff_factor
+
+            raise RuntimeError(f"API call failed after {max_retries + 1} attempts: {last_exception}") from last_exception
+
+        return wrapper
+
+    return decorator
+
+
 def _quota_message(exc: RateLimitError) -> str:
     body = str(exc)
     if "insufficient_quota" in body or "credit_balance_exhausted" in body or "no credits" in body.lower():
@@ -239,22 +281,45 @@ def _quota_message(exc: RateLimitError) -> str:
     return f"OpenAI rate limit (HTTP 429): {exc}"
 
 
-def get_client_and_model(model_override: str | None = None) -> tuple[OpenAI, str]:
-    """Initialize OpenAI-compatible client with appropriate API key, endpoint, and model."""
-    api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("GROQ_API_KEY")
+def get_client_and_model(
+    model_override: str | None = None,
+    config: Config | None = None,
+) -> tuple[OpenAI, str]:
+    """Initialize OpenAI-compatible client with appropriate API key, endpoint, and model.
+
+    Args:
+        model_override: Optional model name to override configuration
+        config: Optional Config instance (uses global config if not provided)
+
+    Returns:
+        Tuple of (OpenAI client, model name)
+
+    Raises:
+        RuntimeError: If no API key is configured
+    """
+    if config is None:
+        config = get_config()
+
+    api_key = config.openai_api_key or config.groq_api_key
     if not api_key:
+        logger.error("No API key configured - check OPENAI_API_KEY or GROQ_API_KEY")
         raise RuntimeError("Neither OPENAI_API_KEY nor GROQ_API_KEY is set in environment or .env.")
 
-    base_url = os.environ.get("OPENAI_BASE_URL")
-    if not os.environ.get("OPENAI_API_KEY") and os.environ.get("GROQ_API_KEY") and not base_url:
+    base_url = config.openai_base_url
+    if not config.openai_api_key and config.groq_api_key and not base_url:
         base_url = "https://api.groq.com/openai/v1"
 
-    client = OpenAI(api_key=api_key, base_url=base_url)
+    # Initialize client with timeout configuration
+    client = OpenAI(
+        api_key=api_key,
+        base_url=base_url,
+        timeout=config.api_timeout,
+    )
 
     if model_override:
         model = model_override
-    elif os.environ.get("OPENAI_MODEL"):
-        env_model = os.environ.get("OPENAI_MODEL", "")
+    elif config.openai_model:
+        env_model = config.openai_model
         if base_url and "groq.com" in base_url and env_model in ("gpt-4o-mini", "gpt-4o"):
             model = "qwen/qwen3.8-27b"
         else:
@@ -264,6 +329,7 @@ def get_client_and_model(model_override: str | None = None) -> tuple[OpenAI, str
     else:
         model = "gpt-4o-mini"
 
+    logger.info(f"Initialized LLM client with model: {model}")
     return client, model
 
 
@@ -283,33 +349,75 @@ def run_react(
     model: str | None = None,
     max_steps: int = DEFAULT_MAX_STEPS,
     on_step: Callable[[int, str, str | None, str | None, str | None], None] | None = None,
+    config: Config | None = None,
 ) -> str:
-    """Execute the bare-metal ReAct loop until goal completion or step exhaustion."""
-    client, resolved_model = get_client_and_model(model)
-    observer = BudgetObserver(hard_cap=HARD_CAP)
+    """Execute the bare-metal ReAct loop until goal completion or step exhaustion.
+
+    Args:
+        user_goal: The travel planning goal to accomplish
+        model: Optional model name override
+        max_steps: Maximum number of ReAct steps allowed
+        on_step: Optional callback for step progress reporting
+        config: Optional configuration instance (uses global config if not provided)
+
+    Returns:
+        Final itinerary with budget verification
+
+    Raises:
+        RuntimeError: If API calls fail after retries or configuration is invalid
+    """
+    if config is None:
+        config = get_config()
+
+    logger.info(f"Starting ReAct loop with goal: {user_goal[:100]}...")
+    logger.info(f"Configuration: max_steps={config.max_steps}, hard_cap=${config.hard_cap:.2f}")
+
+    client, resolved_model = get_client_and_model(model, config)
+    observer = BudgetObserver(hard_cap=config.hard_cap)
 
     messages: list[dict[str, str]] = [
         {"role": "system", "content": SYSTEM_PROMPT.format(tool_list=_tool_list())},
         {"role": "user", "content": user_goal},
     ]
 
-    for step in range(1, max_steps + 1):
+    effective_max_steps = max_steps if max_steps != DEFAULT_MAX_STEPS else config.max_steps
+
+    for step in range(1, effective_max_steps + 1):
         try:
-            payload = _prepare_messages_for_llm(messages)
-            response = client.chat.completions.create(
-                model=resolved_model,
-                messages=payload,
-                temperature=0.2,
-                max_tokens=800,
+            payload = _prepare_messages_for_llm(messages, max_recent=config.max_context_window)
+            
+            # Apply retry logic with exponential backoff
+            @retry_with_backoff(
+                max_retries=config.max_retries,
+                backoff_factor=config.retry_backoff_factor,
+                initial_delay=config.initial_retry_delay,
             )
+            def make_api_call():
+                return client.chat.completions.create(
+                    model=resolved_model,
+                    messages=payload,
+                    temperature=config.temperature,
+                    max_tokens=config.max_tokens,
+                    timeout=config.api_timeout,
+                )
+            
+            response = make_api_call()
+            logger.debug(f"Step {step}: LLM response received ({len(response.choices[0].message.content)} chars)")
+            
         except RateLimitError as exc:
+            logger.error(f"Rate limit exceeded: {exc}")
             raise RuntimeError(_quota_message(exc)) from exc
         except AuthenticationError as exc:
+            logger.error("API authentication failed")
             raise RuntimeError(
                 "API authentication failed. Check OPENAI_API_KEY / GROQ_API_KEY in .env."
             ) from exc
         except APIError as exc:
+            logger.error(f"LLM API error: {exc}")
             raise RuntimeError(f"LLM API error: {exc}") from exc
+        except RuntimeError as exc:
+            logger.error(f"API call failed after retries: {exc}")
+            raise
 
         content = response.choices[0].message.content or ""
         messages.append({"role": "assistant", "content": content})
@@ -320,10 +428,11 @@ def run_react(
             observation = _dispatch(action, action_input or "", observer)
             if on_step:
                 on_step(step, content, action, action_input, observation)
+            logger.info(f"Step {step}: Executed action '{action}' with input: {action_input[:50] if action_input else 'none'}")
             messages.append(
                 {
                     "role": "user",
-                    "content": f"Observation: {observation}\nContinue the ReAct loop. Step {step}/{max_steps}.",
+                    "content": f"Observation: {observation}\nContinue the ReAct loop. Step {step}/{effective_max_steps}.",
                 }
             )
             continue
@@ -336,18 +445,21 @@ def run_react(
             if on_step:
                 on_step(step, content, None, None, None)
 
-            if is_valid or step >= max_steps:
-                return observer.enforce_final(final_text)
+            if is_valid or step >= effective_max_steps:
+                result = observer.enforce_final(final_text)
+                logger.info(f"ReAct loop completed successfully in {step} steps")
+                return result
             else:
                 interception_obs = (
                     f"[BUDGET VIOLATION] Proposed Final Answer exceeds hard cap!\n"
                     f"{report}\n"
                     f"Revise the plan: choose cheaper lodging or activities, recalculate with calculate, and provide a valid plan <= ${observer.hard_cap:.2f}."
                 )
+                logger.warning(f"Step {step}: Budget violation detected - {report}")
                 messages.append(
                     {
                         "role": "user",
-                        "content": f"Observation: {interception_obs}\nContinue the ReAct loop. Step {step}/{max_steps}.",
+                        "content": f"Observation: {interception_obs}\nContinue the ReAct loop. Step {step}/{effective_max_steps}.",
                     }
                 )
                 continue
@@ -355,9 +467,11 @@ def run_react(
         # Fallback if neither action nor final answer explicitly parsed
         if on_step:
             on_step(step, content, None, None, None)
+        logger.warning(f"Step {step}: No action or final answer detected")
         return observer.enforce_final(content)
 
+    logger.warning(f"ReAct loop stopped: exhausted {effective_max_steps} steps without valid final answer")
     return observer.enforce_final(
-        f"Stopped: step budget of {max_steps} steps exhausted before a valid Final Answer. "
+        f"Stopped: step budget of {effective_max_steps} steps exhausted before a valid Final Answer. "
         f"Ensure all expenses are within the ${observer.hard_cap:.2f} cap."
     )
