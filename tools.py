@@ -108,3 +108,6 @@ TOOL_SPECS = [
         "input": "Search query string",
     },
 ]
+if __name__ == "__main__":
+    print("Testing calculate:", calculate("120 + 450"))
+    print("Testing read_file:", read_file("travel_profile.json"))
