@@ -1,1 +1,28 @@
-Nothing should be ignored since only source files (.py) are in the changes.
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+env/
+ENV/
+
+# Logs
+*.log
+server.log
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+coverage/
+htmlcov/
+
+# Operating System & IDE
+.DS_Store
+.vscode/
+.idea/
