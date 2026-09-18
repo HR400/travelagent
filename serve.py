@@ -12,10 +12,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from engine import run_react
+from state_manager import TripState, NodeJSON, Coordinates, seed_default_trip
+from core.observer import BudgetObserverInterceptor
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 WEB_DIR = PROJECT_ROOT / "web"
 PROFILE_PATH = PROJECT_ROOT / "travel_profile.json"
+TRIP_STATE_PATH = PROJECT_ROOT / "trip_state.json"
 PORT = 8000
 
 
@@ -134,6 +137,14 @@ class AgentHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if self.path == "/api/trip/state":
+            try:
+                state = TripState.load_from_file(TRIP_STATE_PATH)
+                self.send_json(200, state.to_dict())
+            except Exception as exc:
+                self.send_json(500, {"status": "error", "error": str(exc)})
+            return
+
         self.send_error(404, "File Not Found")
 
     def do_POST(self) -> None:
@@ -143,6 +154,72 @@ class AgentHandler(BaseHTTPRequestHandler):
             data = json.loads(body) if body else {}
         except Exception:
             data = {}
+
+        if self.path == "/api/trip/node":
+            try:
+                state = TripState.load_from_file(TRIP_STATE_PATH)
+                target_day = int(data.get("day", 1))
+                coords_data = data.get("coordinates", {})
+                lat = float(coords_data.get("lat", 38.7138))
+                lng = float(coords_data.get("lng", -9.1394))
+                node = NodeJSON(
+                    id=str(data.get("id") or f"custom_day{target_day}_{len(state.nodes)+1}"),
+                    day=target_day,
+                    type=str(data.get("type", "custom")),
+                    title=str(data.get("title", "Custom Destination")),
+                    intro=str(data.get("intro", "")),
+                    cost=float(data.get("cost", 0.0)),
+                    coordinates=Coordinates(lat, lng),
+                    is_user_added=True,
+                )
+                observer = BudgetObserverInterceptor(hard_cap=state.budget_cap)
+                state, result = observer.on_user_node_injected(state, node, target_day=target_day)
+                state.save_to_file(TRIP_STATE_PATH)
+                self.send_json(200, {
+                    "status": "success",
+                    "trip_state": state.to_dict(),
+                    "waterfall_result": result.to_dict(),
+                })
+            except Exception as exc:
+                self.send_json(500, {"status": "error", "error": str(exc)})
+            return
+
+        if self.path == "/api/trip/node/update":
+            try:
+                state = TripState.load_from_file(TRIP_STATE_PATH)
+                node_id = str(data.get("id"))
+                updated = state.update_node(node_id, data)
+                state.save_to_file(TRIP_STATE_PATH)
+                self.send_json(200, {
+                    "status": "success" if updated else "not_found",
+                    "trip_state": state.to_dict(),
+                })
+            except Exception as exc:
+                self.send_json(500, {"status": "error", "error": str(exc)})
+            return
+
+        if self.path == "/api/trip/node/delete":
+            try:
+                state = TripState.load_from_file(TRIP_STATE_PATH)
+                node_id = str(data.get("id"))
+                removed = state.remove_node(node_id)
+                state.save_to_file(TRIP_STATE_PATH)
+                self.send_json(200, {
+                    "status": "success" if removed else "not_found",
+                    "trip_state": state.to_dict(),
+                })
+            except Exception as exc:
+                self.send_json(500, {"status": "error", "error": str(exc)})
+            return
+
+        if self.path == "/api/trip/reset":
+            try:
+                state = seed_default_trip()
+                state.save_to_file(TRIP_STATE_PATH)
+                self.send_json(200, {"status": "success", "trip_state": state.to_dict()})
+            except Exception as exc:
+                self.send_json(500, {"status": "error", "error": str(exc)})
+            return
 
         if self.path == "/api/profile":
             try:

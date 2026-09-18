@@ -1,4 +1,4 @@
-"""Agent tools: local file read, safe arithmetic, and Tavily web search."""
+"""Agent tools: local file read, safe arithmetic, Tavily web search, and spatial distance calculation."""
 
 from __future__ import annotations
 
@@ -12,7 +12,15 @@ from typing import Optional
 
 from tavily import TavilyClient
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+# Re-export distance module
+from tools.distance import (
+    haversine_distance_km,
+    estimate_travel_time_mins,
+    format_edge_label,
+    calculate_spatial_context,
+)
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # Cache for Tavily client to avoid repeated initialization
 _tavily_client: Optional[TavilyClient] = None
@@ -147,6 +155,17 @@ TOOL_SPECS = [
     },
 ]
 
-if __name__ == "__main__":
-    print("Testing calculate:", calculate("120 + 450"))
-    print("Testing read_file:", read_file("travel_profile.json")[:40] + "...")
+__all__ = [
+    "PROJECT_ROOT",
+    "TOOL_REGISTRY",
+    "TOOL_SPECS",
+    "calculate",
+    "read_file",
+    "search",
+    "tavily_search",
+    "_get_tavily_client",
+    "haversine_distance_km",
+    "estimate_travel_time_mins",
+    "format_edge_label",
+    "calculate_spatial_context",
+]
