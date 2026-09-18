@@ -2,34 +2,27 @@
   "traveler": {
     "name": "Sambhav",
     "origin": "London, UK",
-    "party_size": 1
+    "party_size": 2
   },
   "trip": {
     "destination": "Tokyo, Japan",
-    "start_date": "2026-11-10",
-    "end_date": "2026-11-16",
-    "nights": 6
+    "start_date": "2026-10-12",
+    "end_date": "2026-10-17",
+    "nights": 5
   },
   "budget": {
     "currency": "USD",
-    "hard_cap": 800.0,
-    "rule": "Total spend must be less than or equal to $800"
+    "hard_cap": 1200.0,
+    "rule": "Total spend must be less than or equal to $1200"
   },
   "preferences": {
-    "pace": "fast-paced, maximize sightseeing & landmarks",
-    "lodging": "hostels or budget dorms",
+    "pace": "balanced",
+    "lodging": "central guesthouse or 3-star hotel",
     "interests": [
-      "history",
-      "viewpoints",
-      "museums",
-      "architecture"
+      "food",
+      "history"
     ],
-    "dietary": [
-      "vegetarian"
-    ],
-    "avoid": [
-      "all-inclusive resorts",
-      "overnight buses"
-    ]
+    "dietary": [],
+    "avoid": []
   }
 }

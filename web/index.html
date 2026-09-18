@@ -3,1362 +3,1492 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ReAct Travel Agent Studio — Autonomous Travel Planner</title>
+  <title>ReAct Travel Agent Studio — Dynamic Itinerary Graph & Geoapify Explorer</title>
+  <meta name="description" content="AI Travel Planner: Centered dynamic itinerary graph, slide-out collapsible CLI agent sidebar, interactive Geoapify mini map explorer with Wikipedia preview, photos, and point-and-click place injection." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Leaflet.js -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     :root {
-      --bg: #070b14;
-      --bg-surface: #0e1526;
-      --card-bg: rgba(15, 23, 42, 0.75);
-      --card-border: rgba(255, 255, 255, 0.08);
-      --card-hover: rgba(30, 41, 69, 0.85);
+      --bg: #050813;
+      --bg-surface: #0a1024;
+      --glass: rgba(13, 22, 48, 0.75);
+      --glass-card: rgba(16, 26, 56, 0.65);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-hover: rgba(25, 40, 85, 0.85);
       --accent: #38bdf8;
-      --accent-hover: #0284c7;
-      --accent-glow: rgba(56, 189, 248, 0.25);
-      --primary-gradient: linear-gradient(135deg, #0284c7, #38bdf8);
-      --success: #34d399;
-      --success-glow: rgba(52, 211, 153, 0.2);
+      --accent2: #818cf8;
+      --accent3: #34d399;
       --danger: #f87171;
-      --danger-glow: rgba(248, 113, 113, 0.25);
       --warning: #fbbf24;
+      --glow-blue: rgba(56, 189, 248, 0.25);
+      --glow-purple: rgba(129, 140, 248, 0.2);
       --text: #f8fafc;
       --text-muted: #94a3b8;
       --text-dim: #64748b;
-      --input-bg: rgba(8, 14, 26, 0.85);
-      --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-      --font-code: 'JetBrains Mono', monospace;
-      --radius-sm: 8px;
-      --radius-md: 12px;
-      --radius-lg: 16px;
+      --font: 'Outfit', -apple-system, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+      --r-sm: 8px; --r-md: 14px; --r-lg: 20px; --r-xl: 28px;
     }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      background: radial-gradient(circle at 10% 10%, #172554 0%, #070b14 60%, #030712 100%);
+    html, body {
+      height: 100%;
+      background: #050813;
       color: var(--text);
-      font-family: var(--font-main);
-      min-height: 100vh;
-      padding: 20px 24px 40px;
-      overflow-x: hidden;
-      line-height: 1.5;
+      font-family: var(--font);
+      overflow: hidden;
     }
 
-    .container {
-      max-width: 1440px;
-      margin: 0 auto;
+    /* Ambient dynamic glow */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 15%, rgba(56, 189, 248, 0.09) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 85%, rgba(129, 140, 248, 0.09) 0%, transparent 60%),
+        radial-gradient(ellipse at 50% 50%, rgba(52, 211, 153, 0.05) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    #app {
+      position: relative;
+      z-index: 1;
+      height: 100vh;
       display: grid;
-      grid-template-columns: 460px 1fr;
-      gap: 24px;
+      grid-template-rows: 58px 1fr;
+      grid-template-columns: 1fr 400px;
+      transition: grid-template-columns 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    @media (max-width: 1080px) {
-      .container {
-        grid-template-columns: 1fr;
-      }
+    #app.sidebar-open {
+      grid-template-columns: 380px 1fr 400px;
     }
 
-    /* Header */
-    header {
+    /* ═══════════════════════════════════════
+       TOPBAR
+    ═══════════════════════════════════════ */
+    #topbar {
       grid-column: 1 / -1;
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 16px;
-      padding: 18px 24px;
-      background: var(--card-bg);
-      backdrop-filter: blur(20px);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius-lg);
-      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
-    }
-
-    .logo-area {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .badge-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 14px;
-      background: var(--primary-gradient);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      box-shadow: 0 0 24px var(--accent-glow);
-    }
-
-    .header-titles h1 {
-      font-size: 21px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .header-titles p {
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
+      padding: 0 20px;
+      background: rgba(8, 14, 30, 0.92);
+      backdrop-filter: blur(28px);
+      border-bottom: 1px solid var(--glass-border);
+      z-index: 10;
       gap: 12px;
-      flex-wrap: wrap;
     }
 
-    .model-selector-wrap {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(0, 0, 0, 0.35);
-      border: 1px solid var(--card-border);
-      padding: 6px 12px;
-      border-radius: 999px;
-      font-size: 12px;
+    .brand-group {
+      display: flex; align-items: center; gap: 12px;
+    }
+
+    .sidebar-toggle-btn {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--r-sm);
       color: var(--text-muted);
-    }
-
-    .model-selector-wrap select {
-      background: transparent;
-      border: none;
-      color: var(--accent);
-      font-family: var(--font-code);
-      font-size: 12px;
-      font-weight: 600;
-      outline: none;
-      cursor: pointer;
-    }
-
-    .badge-tag {
-      font-size: 11px;
-      font-weight: 600;
-      padding: 7px 14px;
-      border-radius: 999px;
-      background: rgba(56, 189, 248, 0.12);
-      border: 1px solid rgba(56, 189, 248, 0.3);
-      color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    /* Sidebar Layout */
-    .sidebar {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-
-    .card {
-      background: var(--card-bg);
-      backdrop-filter: blur(20px);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius-lg);
-      padding: 20px;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
-      transition: border-color 0.2s;
-    }
-
-    .card-title {
+      padding: 6px 10px;
       font-size: 13px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--text-muted);
-      margin-bottom: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    /* Tabbed Builder Navigation */
-    .tabs-nav {
-      display: flex;
-      gap: 6px;
-      margin-bottom: 16px;
-      background: rgba(0, 0, 0, 0.3);
-      padding: 4px;
-      border-radius: var(--radius-sm);
-      border: 1px solid rgba(255, 255, 255, 0.04);
-    }
-
-    .tab-btn {
-      flex: 1;
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      font-size: 12px;
-      font-weight: 600;
-      padding: 8px 10px;
-      border-radius: 6px;
       cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
       transition: all 0.2s;
     }
-
-    .tab-btn.active {
-      background: rgba(56, 189, 248, 0.15);
-      color: var(--accent);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-
-    .form-group {
-      margin-bottom: 12px;
-    }
-
-    label {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-      margin-bottom: 6px;
-      display: block;
-    }
-
-    input, textarea, select {
-      width: 100%;
-      background: var(--input-bg);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius-sm);
-      padding: 10px 12px;
-      color: var(--text);
-      font-family: inherit;
-      font-size: 13px;
-      transition: all 0.2s ease;
-    }
-
-    input:focus, textarea:focus, select:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 12px var(--accent-glow);
-    }
-
-    /* Preset Buttons for Quick Budget Selection */
-    .chip-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 6px;
-      margin-bottom: 12px;
-    }
-
-    .chip {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--card-border);
-      color: var(--text-muted);
-      padding: 5px 10px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .chip:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: var(--text);
-    }
-
-    .chip.active {
-      background: rgba(56, 189, 248, 0.2);
-      border-color: var(--accent);
+    .sidebar-toggle-btn:hover, .sidebar-toggle-btn.active {
+      background: rgba(56,189,248,0.15);
+      border-color: rgba(56,189,248,0.4);
       color: var(--accent);
     }
 
-    /* Budget Observer Meter */
-    .budget-meter-box {
-      margin-top: 14px;
-      padding: 14px;
-      border-radius: var(--radius-md);
-      background: rgba(0, 0, 0, 0.35);
-      border: 1px solid rgba(255, 255, 255, 0.06);
+    .topbar-brand {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .topbar-icon {
+      width: 34px; height: 34px; border-radius: 10px;
+      background: linear-gradient(135deg, #0ea5e9, #818cf8);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      box-shadow: 0 0 24px rgba(56, 189, 248, 0.4);
+    }
+    .topbar-brand h1 {
+      font-size: 16px; font-weight: 700; letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
 
-    .meter-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 12px;
-      margin-bottom: 8px;
+    .topbar-center {
+      display: flex; align-items: center; gap: 10px; flex: 1; justify-content: center; max-width: 680px;
     }
 
-    .meter-header span:first-child {
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-
-    .meter-amount {
-      font-family: var(--font-code);
-      font-weight: 700;
-      color: #fff;
-    }
-
-    .meter-bar {
-      height: 10px;
-      background: rgba(255, 255, 255, 0.08);
+    .topbar-field {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--glass-border);
       border-radius: 999px;
+      padding: 5px 14px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .topbar-field:focus-within {
+      border-color: rgba(56, 189, 248, 0.45);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+    }
+    .topbar-field label { font-size: 11px; color: var(--text-muted); font-weight: 500; white-space: nowrap; }
+    .topbar-field input {
+      background: none; border: none; color: var(--text);
+      font-family: var(--font); font-size: 13px; font-weight: 600;
+      outline: none; width: 170px;
+    }
+
+    .topbar-right { display: flex; align-items: center; gap: 8px; }
+
+    .cap-badge {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+      color: var(--accent3);
+      background: rgba(52, 211, 153, 0.12);
+      border: 1px solid rgba(52, 211, 153, 0.35);
+      border-radius: 999px; padding: 5px 12px;
+    }
+
+    .pill-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 999px;
+      font-size: 11.5px; font-weight: 600; letter-spacing: 0.03em;
+      border: 1px solid; cursor: pointer; transition: all 0.2s;
+    }
+    .pill-btn-outline {
+      background: rgba(255,255,255,0.03); border-color: var(--glass-border); color: var(--text-muted);
+    }
+    .pill-btn-outline:hover { border-color: var(--accent); color: var(--accent); background: rgba(56,189,248,0.06); }
+    .pill-btn-primary {
+      background: linear-gradient(135deg, #0ea5e9, #818cf8);
+      border-color: transparent; color: white;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.35);
+    }
+    .pill-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 28px rgba(56, 189, 248, 0.55); }
+
+    /* ═══════════════════════════════════════
+       COLLAPSIBLE SIDEBAR — CLI REASONING STREAM
+    ═══════════════════════════════════════ */
+    #sidebarCli {
+      display: none;
+      border-right: 1px solid var(--glass-border);
+      background: rgba(8, 14, 30, 0.7);
+      backdrop-filter: blur(20px);
+      flex-direction: column;
       overflow: hidden;
-      position: relative;
+      animation: slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
-
-    .meter-fill {
-      height: 100%;
-      width: 0%;
-      background: var(--accent);
-      border-radius: 999px;
-      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .meter-fill.safe {
-      background: linear-gradient(90deg, #10b981, #34d399);
-      box-shadow: 0 0 10px var(--success-glow);
-    }
-
-    .meter-fill.danger {
-      background: linear-gradient(90deg, #ef4444, #f87171);
-      box-shadow: 0 0 10px var(--danger-glow);
-    }
-
-    .meter-caption {
-      margin-top: 8px;
-      font-size: 11px;
-      color: var(--text-dim);
+    #app.sidebar-open #sidebarCli {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
     }
+    @keyframes slideInLeft { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-    /* Buttons */
-    .btn-group {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-top: 14px;
+    .sidebar-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--glass-border);
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
     }
-
-    button {
-      cursor: pointer;
-      font-family: inherit;
-      font-weight: 600;
-      border: none;
-      border-radius: var(--radius-sm);
-      padding: 12px 18px;
-      font-size: 13.5px;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
+    .sidebar-title {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--text-muted);
+      display: flex; align-items: center; gap: 7px;
     }
-
-    .btn-primary {
-      background: var(--primary-gradient);
-      color: #04121e;
-      font-weight: 700;
-      box-shadow: 0 4px 16px var(--accent-glow);
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 22px rgba(56, 189, 248, 0.45);
-    }
-
-    .btn-primary:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .btn-secondary {
-      background: rgba(255, 255, 255, 0.05);
-      color: var(--text);
-      border: 1px solid var(--card-border);
-    }
-
-    .btn-secondary:hover:not(:disabled) {
-      background: rgba(255, 255, 255, 0.1);
-    }
-
-    .btn-outline {
-      background: transparent;
-      color: var(--accent);
-      border: 1px solid rgba(56, 189, 248, 0.35);
-      font-size: 12px;
-      padding: 8px 12px;
-    }
-
-    .btn-outline:hover {
-      background: rgba(56, 189, 248, 0.1);
-    }
-
-    /* Main View: ReAct Stream */
-    .main-view {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-
-    .feed-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 14px;
-      border-bottom: 1px solid var(--card-border);
-    }
-
-    .status-indicator {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
     .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--text-dim);
+      width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim);
     }
+    .status-dot.running { background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: pulse 1s infinite; }
+    .status-dot.done { background: var(--accent3); box-shadow: 0 0 10px var(--accent3); }
+    .status-dot.error { background: var(--danger); }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-    .status-dot.active {
-      background: var(--accent);
-      box-shadow: 0 0 10px var(--accent);
-      animation: pulse 1.5s infinite;
+    .sidebar-tabs {
+      display: flex; padding: 8px 12px 0; gap: 4px; flex-shrink: 0;
     }
-
-    .status-dot.done {
-      background: var(--success);
+    .stab {
+      padding: 5px 10px; border-radius: var(--r-sm);
+      font-size: 11px; font-weight: 600; cursor: pointer;
+      background: transparent; border: 1px solid transparent;
+      color: var(--text-muted); transition: all 0.15s;
     }
+    .stab.active { background: rgba(56,189,248,0.12); border-color: rgba(56,189,248,0.3); color: var(--accent); }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.85); }
-    }
-
-    /* Step Cards */
-    .step-card {
-      background: rgba(18, 28, 48, 0.6);
-      backdrop-filter: blur(16px);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius-md);
-      padding: 16px 20px;
-      margin-bottom: 14px;
-      animation: slideIn 0.3s ease-out;
-      transition: border-color 0.2s, background 0.2s;
-    }
-
-    .step-card:hover {
-      border-color: rgba(255, 255, 255, 0.16);
-      background: rgba(22, 34, 58, 0.7);
-    }
-
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .step-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      font-family: var(--font-code);
-      font-weight: 600;
-      padding: 3px 8px;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.06);
-      color: var(--accent);
-      margin-bottom: 10px;
-    }
-
-    .thought-box {
-      font-size: 13.5px;
-      color: #cbd5e1;
-      margin-bottom: 12px;
-      line-height: 1.55;
-    }
-
-    .action-box {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      background: rgba(0, 0, 0, 0.35);
+    .stab-content {
       padding: 10px 14px;
-      border-radius: var(--radius-sm);
-      font-family: var(--font-code);
-      font-size: 12px;
+      border-bottom: 1px solid var(--glass-border);
+      flex-shrink: 0; font-size: 12px;
+    }
+    .tab-view { display: none; }
+    .tab-view.active { display: block; }
+
+    .form-group { margin-bottom: 8px; }
+    .form-group label { display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 3px; }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; padding: 6px 10px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--glass-border); border-radius: var(--r-sm);
+      color: var(--text); font-family: var(--font); font-size: 12px;
+      outline: none; transition: border-color 0.2s;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: rgba(56,189,248,0.5); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    .chip-container { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .chip-item {
+      padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 600;
+      cursor: pointer; border: 1px solid var(--glass-border); color: var(--text-muted);
+      background: transparent; transition: all 0.15s;
+    }
+    .chip-item.active { background: rgba(56,189,248,0.15); border-color: rgba(56,189,248,0.4); color: var(--accent); }
+
+    /* JSON Upload Area */
+    .json-upload-card {
+      margin: 8px 14px;
+      border: 1.5px dashed var(--glass-border);
+      border-radius: var(--r-md);
+      padding: 10px; text-align: center;
+      font-size: 11px; color: var(--text-muted);
+      cursor: pointer; transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .json-upload-card:hover {
+      border-color: rgba(56,189,248,0.5); background: rgba(56,189,248,0.04); color: var(--accent);
+    }
+    #jsonFileInput { display: none; }
+
+    /* Agent Goal Box */
+    .goal-box {
+      padding: 8px 14px; border-bottom: 1px solid var(--glass-border); flex-shrink: 0;
+    }
+    .goal-box textarea {
+      width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
+      border-radius: var(--r-sm); color: var(--text); font-family: var(--font); font-size: 11px;
+      padding: 7px 10px; resize: none; outline: none; line-height: 1.45;
+    }
+
+    /* CLI Stream Feed */
+    #cliFeed {
+      flex: 1; overflow-y: auto; padding: 12px 14px;
+      font-family: var(--mono); font-size: 11px;
+    }
+    #cliFeed::-webkit-scrollbar { width: 4px; }
+    #cliFeed::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+    .cli-card { margin-bottom: 12px; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    .cli-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--accent2); margin-bottom: 4px;
+    }
+    .cli-thought-text {
+      color: var(--text-muted); line-height: 1.5; padding: 6px 10px;
+      background: rgba(255,255,255,0.03); border-left: 2px solid rgba(129,140,248,0.4);
+      border-radius: 0 var(--r-sm) var(--r-sm) 0; margin-bottom: 4px; font-size: 11px;
+    }
+    .cli-action-row {
+      display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;
+    }
+    .cli-act-badge {
+      background: rgba(56,189,248,0.15); color: var(--accent);
+      border: 1px solid rgba(56,189,248,0.3); border-radius: 4px;
+      padding: 2px 6px; font-size: 10px; font-weight: 700;
+    }
+    .cli-act-in { color: var(--text-muted); font-size: 10.5px; word-break: break-all; }
+    .cli-obs-text {
+      color: #64748b; font-size: 10px; line-height: 1.45;
+      max-height: 80px; overflow-y: auto; padding: 5px 8px;
+      background: rgba(0,0,0,0.25); border-radius: var(--r-sm);
+    }
+    .cli-violation-box {
+      background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3);
+      color: var(--danger); border-radius: var(--r-sm); padding: 5px 8px; font-size: 10px; margin-top: 4px;
+    }
+    .cli-ok-box {
+      background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3);
+      color: var(--accent3); border-radius: var(--r-sm); padding: 5px 8px; font-size: 10px; margin-top: 4px;
+    }
+
+    /* ═══════════════════════════════════════
+       CENTER PANEL — ITINERARY GRAPH (HERO)
+    ═══════════════════════════════════════ */
+    #panelCenterGraph {
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      background: rgba(5, 8, 19, 0.4);
+    }
+
+    .graph-header {
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--glass-border);
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(10, 18, 40, 0.4);
+      flex-shrink: 0;
+    }
+    .graph-title-group h2 {
+      font-size: 16px; font-weight: 700; color: var(--text);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .graph-title-group p { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    .graph-stats-strip {
+      display: flex; align-items: center; gap: 14px;
+    }
+    .stat-pill {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--r-md);
+      padding: 6px 14px;
+      text-align: right;
+    }
+    .stat-pill label { display: block; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
+    .stat-pill span { font-size: 14px; font-weight: 700; font-family: var(--mono); color: var(--accent3); }
+
+    /* Center Graph Scrollable Viewport */
+    #graphScrollArea {
+      flex: 1; overflow-y: auto; overflow-x: auto;
+      padding: 24px 32px 40px;
+    }
+    #graphScrollArea::-webkit-scrollbar { width: 6px; height: 6px; }
+    #graphScrollArea::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+
+    /* Day Columns Layout */
+    .day-columns-container {
+      display: flex; gap: 20px; align-items: flex-start; min-width: max-content;
+    }
+
+    .day-column {
+      width: 320px; flex-shrink: 0;
+      background: var(--glass-card);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--r-lg);
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      transition: border-color 0.2s;
+    }
+    .day-column:hover { border-color: rgba(255,255,255,0.14); }
+
+    .day-col-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-bottom: 12px; margin-bottom: 12px;
+      border-bottom: 1px solid var(--glass-border);
+    }
+    .day-col-title { font-size: 14px; font-weight: 700; color: var(--text); }
+    .day-col-spend {
+      font-size: 12px; font-weight: 700; color: var(--accent);
+      background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25);
+      border-radius: 999px; padding: 2px 8px; font-family: var(--mono);
+    }
+
+    /* Node Cards inside Day Column */
+    .node-item {
+      background: rgba(10, 16, 36, 0.85);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--r-md);
+      padding: 12px 14px;
       margin-bottom: 10px;
-      border-left: 3px solid var(--accent);
+      cursor: pointer;
+      position: relative;
+      transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
     }
-
-    .action-name {
-      color: var(--accent);
-      font-weight: 600;
-      white-space: nowrap;
+    .node-item:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+      background: rgba(18, 28, 60, 0.95);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
     }
-
-    .action-input {
-      color: #e2e8f0;
-      word-break: break-all;
+    .node-item.expanded {
+      border-color: rgba(56, 189, 248, 0.7);
+      background: rgba(14, 24, 52, 0.98);
+      box-shadow: 0 0 0 1px rgba(56,189,248,0.3), 0 14px 40px rgba(0,0,0,0.6);
+      transform: scale(1.02);
+      z-index: 5;
     }
+    .node-item.hotel { border-left: 3px solid #818cf8; }
+    .node-item.food { border-left: 3px solid #34d399; }
+    .node-item.activity { border-left: 3px solid #38bdf8; }
+    .node-item.custom { border-left: 3px solid #fbbf24; }
 
-    .observation-box {
-      background: rgba(8, 13, 22, 0.95);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      border-radius: var(--radius-sm);
-      padding: 12px;
-      font-family: var(--font-code);
-      font-size: 12px;
-      max-height: 240px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      word-break: break-word;
-      color: #94a3b8;
+    .node-main-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
     }
+    .node-icon-title { display: flex; align-items: center; gap: 8px; flex: 1; }
+    .node-type-emoji { font-size: 16px; }
+    .node-name { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.3; }
+    .node-price { font-size: 13px; font-weight: 700; color: var(--accent3); font-family: var(--mono); }
 
-    .tag-violation {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin-top: 10px;
-      padding: 6px 12px;
-      border-radius: 6px;
-      background: rgba(239, 68, 68, 0.15);
-      border: 1px solid rgba(239, 68, 68, 0.4);
-      color: var(--danger);
-      font-size: 12px;
-      font-weight: 600;
+    .node-sub-row {
+      display: flex; align-items: center; justify-content: space-between; margin-top: 6px;
     }
-
-    .tag-ok {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin-top: 10px;
-      padding: 6px 12px;
-      border-radius: 6px;
-      background: rgba(16, 185, 129, 0.15);
-      border: 1px solid rgba(16, 185, 129, 0.4);
-      color: var(--success);
-      font-size: 12px;
-      font-weight: 600;
+    .node-tag {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+      padding: 2px 7px; border-radius: 999px;
     }
+    .tag-hotel { background: rgba(129,140,248,0.15); color: var(--accent2); border: 1px solid rgba(129,140,248,0.3); }
+    .tag-food { background: rgba(52,211,153,0.12); color: var(--accent3); border: 1px solid rgba(52,211,153,0.3); }
+    .tag-activity { background: rgba(56,189,248,0.12); color: var(--accent); border: 1px solid rgba(56,189,248,0.3); }
+    .tag-custom { background: rgba(251,191,36,0.12); color: var(--warning); border: 1px solid rgba(251,191,36,0.3); }
 
-    .final-answer-card {
-      background: linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, rgba(18, 26, 43, 0.95) 100%);
-      border: 1px solid rgba(16, 185, 129, 0.35);
-      border-radius: var(--radius-lg);
-      padding: 24px;
-      margin-top: 14px;
-      box-shadow: 0 16px 40px rgba(16, 185, 129, 0.12);
-      animation: slideIn 0.4s ease-out;
-    }
+    .node-time-badge { font-size: 10px; color: var(--text-dim); font-family: var(--mono); }
 
-    .final-answer-card h3 {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      color: var(--success);
-      font-size: 17px;
-      font-weight: 700;
-      margin-bottom: 16px;
-    }
-
-    .final-content {
-      font-size: 14px;
-      line-height: 1.65;
-      white-space: pre-wrap;
-      font-family: inherit;
-      color: #f1f5f9;
-    }
-
-    .spinner {
-      width: 14px;
-      height: 14px;
-      border: 2px solid rgba(255, 255, 255, 0.2);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      display: inline-block;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 80px 20px;
-      color: var(--text-muted);
-    }
-
-    .empty-state-icon {
-      font-size: 48px;
-      margin-bottom: 16px;
-    }
-
-    .summary-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-bottom: 12px;
-      font-size: 12.5px;
-    }
-
-    .summary-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 6px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
-
-    .summary-item .label {
-      color: var(--text-muted);
-    }
-
-    .summary-item .val {
-      font-weight: 600;
-      color: #fff;
-    }
-
-    .toast {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      background: rgba(15, 23, 42, 0.95);
-      border: 1px solid var(--accent);
-      color: #fff;
-      padding: 12px 20px;
-      border-radius: var(--radius-sm);
-      font-size: 13px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-      z-index: 1000;
+    /* Expanded Details inside Center Graph */
+    .node-expanded-body {
+      display: none;
+      margin-top: 12px; padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.06);
       animation: fadeIn 0.2s ease;
     }
+    .node-item.expanded .node-expanded-body { display: block; }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
+    .node-wiki-preview {
+      background: rgba(0,0,0,0.3);
+      border-radius: var(--r-sm);
+      padding: 8px 10px;
+      margin-bottom: 10px;
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      display: flex; gap: 10px;
+    }
+    .wiki-thumb {
+      width: 60px; height: 60px; border-radius: 6px;
+      object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,0.05);
+      border: 1px solid var(--glass-border);
+    }
+    .wiki-text-wrap { flex: 1; overflow: hidden; }
+    .wiki-title-row {
+      font-weight: 700; color: var(--accent); font-size: 11px; margin-bottom: 3px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .wiki-external-link {
+      color: var(--accent2); text-decoration: none; font-size: 10px; font-weight: 600;
+    }
+    .wiki-external-link:hover { text-decoration: underline; }
+
+    .node-inputs-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;
+    }
+    .node-inputs-grid .fg label { font-size: 9px; text-transform: uppercase; color: var(--text-dim); font-weight: 700; margin-bottom: 3px; display: block; }
+    .node-inputs-grid .fg input {
+      width: 100%; padding: 5px 8px; background: rgba(255,255,255,0.05);
+      border: 1px solid var(--glass-border); border-radius: var(--r-sm);
+      color: var(--text); font-family: var(--font); font-size: 11px; outline: none;
+    }
+
+    .node-ctrl-btns { display: flex; gap: 6px; }
+    .node-ctrl-btns button {
+      flex: 1; padding: 6px; border-radius: var(--r-sm); font-size: 10px; font-weight: 700;
+      cursor: pointer; border: 1px solid; transition: all 0.15s;
+    }
+    .btn-n-save { background: rgba(56,189,248,0.12); border-color: rgba(56,189,248,0.3); color: var(--accent); }
+    .btn-n-save:hover { background: rgba(56,189,248,0.22); }
+    .btn-n-map { background: rgba(129,140,248,0.12); border-color: rgba(129,140,248,0.3); color: var(--accent2); }
+    .btn-n-map:hover { background: rgba(129,140,248,0.22); }
+    .btn-n-del { background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.25); color: var(--danger); flex: 0.5 !important; }
+
+    /* Edge between nodes */
+    .edge-link {
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px; margin: -4px 0 6px;
+      font-size: 9.5px; color: var(--text-dim);
+    }
+    .edge-link-badge {
+      background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border);
+      border-radius: 4px; padding: 2px 7px; font-family: var(--mono);
+    }
+
+    /* Add place quick button at bottom of day col */
+    .btn-add-to-day {
+      width: 100%; padding: 8px; border-radius: var(--r-md);
+      background: rgba(255,255,255,0.03); border: 1px dashed var(--glass-border);
+      color: var(--text-muted); font-size: 11px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn-add-to-day:hover {
+      border-color: rgba(56,189,248,0.4); background: rgba(56,189,248,0.06); color: var(--accent);
+    }
+
+    /* ═══════════════════════════════════════
+       RIGHT PANEL — GEOAPIFY MINI MAP & EXPLORER
+    ═══════════════════════════════════════ */
+    #panelRightMap {
+      border-left: 1px solid var(--glass-border);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      background: rgba(8, 14, 30, 0.7);
+    }
+
+    .map-panel-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--glass-border);
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .map-panel-title {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--text-muted); display: flex; align-items: center; gap: 6px;
+    }
+
+    /* Mini Map Container */
+    #miniMapContainer {
+      height: 280px; width: 100%;
+      flex-shrink: 0; position: relative;
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    /* Geoapify Place Category Selector */
+    .poi-category-bar {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--glass-border);
+      display: flex; gap: 4px; overflow-x: auto; flex-shrink: 0;
+    }
+    .poi-category-bar::-webkit-scrollbar { height: 2px; }
+    .cat-btn {
+      padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 600;
+      background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
+      color: var(--text-muted); cursor: pointer; white-space: nowrap; transition: all 0.15s;
+    }
+    .cat-btn.active, .cat-btn:hover {
+      background: rgba(56,189,248,0.15); border-color: rgba(56,189,248,0.35); color: var(--accent);
+    }
+
+    /* Discovered POIs from Map */
+    #poiExplorerList {
+      flex: 1; overflow-y: auto; padding: 12px;
+    }
+    #poiExplorerList::-webkit-scrollbar { width: 4px; }
+    #poiExplorerList::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+    .poi-item {
+      background: rgba(14, 22, 48, 0.7);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--r-md);
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      transition: all 0.2s;
+    }
+    .poi-item:hover {
+      border-color: rgba(56,189,248,0.35); background: rgba(20, 32, 66, 0.85);
+    }
+    .poi-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+    .poi-name { font-size: 12px; font-weight: 700; color: var(--text); line-height: 1.3; }
+    .poi-cat-tag { font-size: 9px; color: var(--accent2); background: rgba(129,140,248,0.1); border-radius: 4px; padding: 2px 5px; white-space: nowrap; }
+    .poi-addr { font-size: 10.5px; color: var(--text-dim); line-height: 1.35; margin-bottom: 6px; }
+
+    .poi-wiki-box {
+      font-size: 10.5px; color: var(--text-muted); background: rgba(0,0,0,0.25);
+      border-radius: var(--r-sm); padding: 6px 8px; margin-bottom: 8px;
+      line-height: 1.4; display: flex; gap: 8px;
+    }
+    .poi-wiki-thumb {
+      width: 44px; height: 44px; border-radius: 4px; object-fit: cover; flex-shrink: 0;
+    }
+
+    .poi-actions { display: flex; align-items: center; gap: 6px; }
+    .poi-day-select {
+      background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+      border-radius: var(--r-sm); color: var(--text); font-size: 10px; font-weight: 600;
+      padding: 4px 6px; outline: none;
+    }
+    .btn-poi-add {
+      flex: 1; padding: 5px 8px; border-radius: var(--r-sm);
+      background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.3);
+      color: var(--accent); font-size: 10.5px; font-weight: 700; cursor: pointer;
+      transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 4px;
+    }
+    .btn-poi-add:hover { background: rgba(56,189,248,0.25); }
+
+    /* Custom Toast */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: rgba(10,18,40,0.96); backdrop-filter: blur(20px);
+      border: 1px solid rgba(56,189,248,0.4); border-radius: var(--r-md);
+      padding: 10px 22px; font-size: 12px; font-weight: 600; color: var(--accent);
+      z-index: 99999; pointer-events: none; opacity: 0; transition: opacity 0.3s, transform 0.3s;
+      box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(-6px); }
+
+    /* Responsive */
+    @media (max-width: 1100px) {
+      #app { grid-template-columns: 1fr 340px; }
+      #app.sidebar-open { grid-template-columns: 320px 1fr 340px; }
     }
   </style>
 </head>
 <body>
+<div id="app">
 
-  <div class="container">
-    <header>
-      <div class="logo-area">
-        <div class="badge-icon">✈️</div>
-        <div class="header-titles">
-          <h1>ReAct Travel Agent Studio</h1>
-          <p>Bare-Metal Loop &bull; Real-time Tavily & AST Tools &bull; Programmatic Invariant Guardrail</p>
+  <!-- ═══════════ TOPBAR ═══════════ -->
+  <header id="topbar">
+    <div class="brand-group">
+      <button class="sidebar-toggle-btn" id="btnToggleSidebar" title="Toggle CLI Agent Stream">
+        <span>⚡ CLI Agent</span>
+      </button>
+      <div class="topbar-brand">
+        <div class="topbar-icon">🗺️</div>
+        <h1>ReAct Travel Agent Studio</h1>
+      </div>
+    </div>
+
+    <div class="topbar-center">
+      <div class="topbar-field">
+        <label>📍 Destination</label>
+        <input type="text" id="topDest" value="Lisbon, Portugal" placeholder="City, Country" />
+      </div>
+      <div class="topbar-field" style="width:110px;">
+        <label>📅 Nights</label>
+        <input type="number" id="topNights" value="5" min="1" max="30" style="width:36px;" />
+      </div>
+      <div class="topbar-field" style="width:130px;">
+        <label>💰 Cap $</label>
+        <input type="number" id="topCap" value="800" min="100" max="9999" style="width:55px;" />
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <span class="cap-badge" id="capBadge">CAP: $800</span>
+      <button class="pill-btn pill-btn-outline" id="btnSaveProfile">💾 Save Profile</button>
+      <button class="pill-btn pill-btn-primary" id="btnRunAgentTop">🚀 Run Agent</button>
+    </div>
+  </header>
+
+  <!-- ═══════════ SIDEBAR: CLI AGENT REASONING STREAM ═══════════ -->
+  <aside id="sidebarCli">
+    <div class="sidebar-header">
+      <div class="sidebar-title">
+        <span class="status-dot" id="cliStatusDot"></span>
+        CLI Agent Stream
+      </div>
+      <div style="display:flex;gap:5px;">
+        <button class="cat-btn" id="btnDemoStream" style="font-size:10px;">⚡ Demo</button>
+        <button class="cat-btn" id="btnClearStream" style="font-size:10px;">✕</button>
+      </div>
+    </div>
+
+    <div class="sidebar-tabs">
+      <button class="stab active" data-tab="tab-stream">📡 Live Stream</button>
+      <button class="stab" data-tab="tab-settings">⚙️ Traveler Info</button>
+    </div>
+
+    <!-- Tab 1: Live Stream View -->
+    <div class="tab-view active" id="tab-stream" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div class="goal-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <label style="font-size:9.5px;text-transform:uppercase;color:var(--text-dim);font-weight:700;">ReAct Agent Goal</label>
+          <span style="font-size:9.5px;color:var(--accent);" id="modelLabel">GPT-OSS 120B</span>
+        </div>
+        <textarea id="goalInput" rows="2">Read travel_profile.json, research realistic 2026 prices for Alex Rivera traveling to Lisbon (5 nights), and produce an itinerary with Total <= $800.</textarea>
+      </div>
+
+      <div style="padding:6px 14px;display:flex;gap:6px;border-bottom:1px solid var(--glass-border);flex-shrink:0;">
+        <button class="pill-btn pill-btn-primary" id="btnRunLiveSide" style="flex:1;justify-content:center;padding:5px;">🚀 Run Live</button>
+        <button class="pill-btn pill-btn-outline" id="btnTestViolation" style="font-size:10px;padding:5px 8px;">⚠️ Guardrail</button>
+      </div>
+
+      <div id="cliFeed">
+        <div style="color:var(--text-dim);font-size:11px;text-align:center;padding:20px 10px;">
+          Agent reasoning loop stream will display here in real-time.
         </div>
       </div>
-      <div class="header-actions">
-        <div class="model-selector-wrap">
-          <span>Model:</span>
-          <select id="modelSelect">
-            <option value="openai/gpt-oss-120b" selected>GPT-OSS 120B (Recommended)</option>
-            <option value="openai/gpt-oss-20b">GPT-OSS 20B (Fast)</option>
+    </div>
+
+    <!-- Tab 2: Settings & JSON Upload -->
+    <div class="tab-view" id="tab-settings" style="overflow-y:auto;flex:1;padding:12px 14px;">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Traveler Name</label>
+          <input type="text" id="travelerName" value="Alex Rivera" />
+        </div>
+        <div class="form-group">
+          <label>Party Size</label>
+          <input type="number" id="partySize" value="1" min="1" max="10" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Origin</label>
+        <input type="text" id="origin" value="San Francisco, CA" />
+      </div>
+      <div class="form-group">
+        <label>Pace</label>
+        <select id="selectPace">
+          <option value="walkable neighborhoods, one major outing per day">Balanced</option>
+          <option value="relaxed, slow travel with coffee & viewpoints">Relaxed</option>
+          <option value="fast-paced, maximize sightseeing & landmarks">Packed</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Lodging</label>
+        <select id="selectLodging">
+          <option value="central guesthouse or 3-star hotel">Guesthouse / 3-Star</option>
+          <option value="hostels or budget dorms">Hostels / Dorms</option>
+          <option value="boutique hotels or cozy Airbnb">Boutique / Airbnb</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Interests</label>
+        <div class="chip-container" id="interestChips">
+          <span class="chip-item active" data-val="food">Food</span>
+          <span class="chip-item active" data-val="history">History</span>
+          <span class="chip-item active" data-val="viewpoints">Viewpoints</span>
+          <span class="chip-item" data-val="museums">Museums</span>
+          <span class="chip-item" data-val="architecture">Architecture</span>
+        </div>
+      </div>
+
+      <!-- JSON Upload -->
+      <div class="json-upload-card" id="jsonDropZone">
+        <input type="file" id="jsonFileInput" accept=".json" />
+        📂 Drop <strong>travel_profile.json</strong> or click to upload
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══════════ CENTER PANEL: MAIN ITINERARY GRAPH ═══════════ -->
+  <main id="panelCenterGraph">
+    <div class="graph-header">
+      <div class="graph-title-group">
+        <h2>🗓️ Dynamic Itinerary Graph</h2>
+        <p>Interactive spatial-temporal nodes &bull; Click any node to expand, edit budget, or view Wikipedia info</p>
+      </div>
+
+      <div class="graph-stats-strip">
+        <div class="stat-pill">
+          <label>Status</label>
+          <span id="centerStatusFlag" style="color:var(--accent3);">BALANCED</span>
+        </div>
+        <div class="stat-pill">
+          <label>Total Spend</label>
+          <span id="centerTotalSpend">$409.00</span>
+        </div>
+        <div class="stat-pill">
+          <label>Budget Cap</label>
+          <span id="centerBudgetCap">$800.00</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scrollable Graph Columns Container -->
+    <div id="graphScrollArea">
+      <div class="day-columns-container" id="dayColumnsContainer">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+  </main>
+
+  <!-- ═══════════ RIGHT PANEL: GEOAPIFY MINI MAP & EXPLORER ═══════════ -->
+  <aside id="panelRightMap">
+    <div class="map-panel-header">
+      <div class="map-panel-title">🗺️ Geoapify Map & Places</div>
+      <span style="font-size:10px;color:var(--accent);font-weight:600;" id="geoapifyStatus">Ready</span>
+    </div>
+
+    <!-- Mini Map -->
+    <div id="miniMapContainer"></div>
+
+    <!-- POI Filter Categories -->
+    <div class="poi-category-bar">
+      <button class="cat-btn active" data-cat="tourism.sights,tourism.attraction">🏰 Attractions</button>
+      <button class="cat-btn" data-cat="catering.restaurant,catering.cafe">🍽️ Food</button>
+      <button class="cat-btn" data-cat="accommodation.hotel,accommodation.hostel">🏨 Hotels</button>
+      <button class="cat-btn" data-cat="entertainment.museum">🏛️ Museums</button>
+      <button class="cat-btn" data-cat="natural">🌿 Nature</button>
+    </div>
+
+    <!-- Discovered POIs List with Wiki Info -->
+    <div id="poiExplorerList">
+      <div style="color:var(--text-dim);font-size:11px;text-align:center;padding:24px 10px;">
+        Click anywhere on the map to search nearby places and view live Wikipedia info + photos.
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<div id="toast">Message</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// CONSTANTS & STATE
+// ═══════════════════════════════════════════════════════
+const GEOAPIFY_API_KEY = "39833c9d2373437487e7aac13bc286c5";
+let currentCap = 800;
+let tripState = null;
+let miniMap = null;
+let mapMarkers = [];
+let routeLines = [];
+let currentCategory = "tourism.sights,tourism.attraction";
+let wikiCache = {};
+
+// ═══════════════════════════════════════════════════════
+// SIDEBAR COLLAPSIBLE TOGGLE
+// ═══════════════════════════════════════════════════════
+const btnToggleSidebar = document.getElementById('btnToggleSidebar');
+const appEl = document.getElementById('app');
+
+btnToggleSidebar.addEventListener('click', () => {
+  appEl.classList.toggle('sidebar-open');
+  btnToggleSidebar.classList.toggle('active', appEl.classList.contains('sidebar-open'));
+  setTimeout(() => { if (miniMap) miniMap.invalidateSize(); }, 360);
+});
+
+// Tab switching in sidebar
+document.querySelectorAll('.stab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.stab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.tab).classList.add('active');
+  });
+});
+
+// Interest chips
+document.querySelectorAll('#interestChips .chip-item').forEach(c => {
+  c.addEventListener('click', () => { c.classList.toggle('active'); rebuildGoal(); });
+});
+
+// ═══════════════════════════════════════════════════════
+// INIT GEOAPIFY LEAFLET MAP
+// ═══════════════════════════════════════════════════════
+function initGeoapifyMap() {
+  miniMap = L.map('miniMapContainer', { zoomControl: true, attributionControl: false });
+
+  // Geoapify Carto Tile Layer with the user's provided API Key
+  const tileUrl = `https://maps.geoapify.com/v1/tile/carto/{z}/{x}/{y}.png?apiKey=${GEOAPIFY_API_KEY}`;
+  L.tileLayer(tileUrl, {
+    maxZoom: 20,
+    subdomains: ['a', 'b', 'c', 'd']
+  }).addTo(miniMap);
+
+  miniMap.setView([38.7169, -9.1399], 12);
+
+  // Click on map to discover nearby places
+  miniMap.on('click', (e) => {
+    fetchNearbyPlaces(e.latlng.lat, e.latlng.lng);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// WIKIPEDIA API INFO & PHOTO FETCHER
+// ═══════════════════════════════════════════════════════
+async function getWikiSummary(title) {
+  if (wikiCache[title]) return wikiCache[title];
+  try {
+    const cleanTitle = title.replace(/\(.*?\)/g, '').trim();
+    const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(cleanTitle)}`);
+    if (res.ok) {
+      const data = await res.json();
+      const info = {
+        title: data.title || title,
+        extract: data.extract ? data.extract.slice(0, 180) + '...' : 'Historic and cultural destination.',
+        thumbnail: data.thumbnail ? data.thumbnail.source : null,
+        url: data.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent(cleanTitle)}`
+      };
+      wikiCache[title] = info;
+      return info;
+    }
+  } catch (err) {}
+  const fallback = {
+    title: title,
+    extract: 'Travel destination with local significance.',
+    thumbnail: null,
+    url: `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(title)}`
+  };
+  wikiCache[title] = fallback;
+  return fallback;
+}
+
+// ═══════════════════════════════════════════════════════
+// GEOAPIFY PLACES API DISCOVERY
+// ═══════════════════════════════════════════════════════
+async function fetchNearbyPlaces(lat, lng) {
+  const statusEl = document.getElementById('geoapifyStatus');
+  statusEl.textContent = 'Searching places...';
+
+  try {
+    const url = `https://api.geoapify.com/v2/places?categories=${currentCategory}&filter=circle:${lng},${lat},3000&bias=proximity:${lng},${lat}&limit=12&apiKey=${GEOAPIFY_API_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (data.features && data.features.length) {
+      statusEl.textContent = `Found ${data.features.length} places`;
+      renderPoiList(data.features);
+    } else {
+      statusEl.textContent = 'No places nearby';
+      document.getElementById('poiExplorerList').innerHTML = `<div style="color:var(--text-dim);font-size:11px;text-align:center;padding:20px;">No places found in this radius. Click another spot on the map.</div>`;
+    }
+  } catch (err) {
+    statusEl.textContent = 'Search failed';
+    toast('Geoapify search error: ' + err.message, 'var(--danger)');
+  }
+}
+
+async function renderPoiList(features) {
+  const container = document.getElementById('poiExplorerList');
+  container.innerHTML = '<div style="color:var(--text-dim);font-size:11px;padding:10px;text-align:center;">Loading Wikipedia details & photos...</div>';
+
+  let html = '';
+  const totalDays = parseInt(document.getElementById('topNights').value) || 5;
+
+  for (const f of features) {
+    const p = f.properties;
+    const name = p.name || p.formatted || 'Attraction';
+    const lat = p.lat;
+    const lng = p.lon;
+    const cat = (p.categories && p.categories[0]) ? p.categories[0].split('.')[1] || 'sights' : 'place';
+    const address = p.address_line2 || p.street || p.city || '';
+
+    // Fetch live Wikipedia summary & photo
+    const wiki = await getWikiSummary(name);
+
+    html += `
+      <div class="poi-item" data-lat="${lat}" data-lng="${lng}">
+        <div class="poi-top">
+          <div class="poi-name">${escapeHtml(name)}</div>
+          <span class="poi-cat-tag">${cat}</span>
+        </div>
+        <div class="poi-addr">${escapeHtml(address)}</div>
+
+        <div class="poi-wiki-box">
+          ${wiki.thumbnail ? `<img src="${wiki.thumbnail}" class="poi-wiki-thumb" alt="${escapeHtml(name)}" />` : '<div class="poi-wiki-thumb" style="background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:16px;">🏛️</div>'}
+          <div style="flex:1;">
+            <div>${escapeHtml(wiki.extract)}</div>
+            <a href="${wiki.url}" target="_blank" class="wiki-external-link" style="margin-top:4px;display:inline-block;">📖 Read full Wikipedia</a>
+          </div>
+        </div>
+
+        <div class="poi-actions">
+          <select class="poi-day-select" id="daySelect_${lat}_${lng}">
+            ${Array.from({length: totalDays}, (_, i) => `<option value="${i+1}">Day ${i+1}</option>`).join('')}
           </select>
-        </div>
-        <span class="badge-tag">
-          <span id="badgeHardCap">CAP: $800</span>
-        </span>
-      </div>
-    </header>
-
-    <!-- Left Controls Panel -->
-    <div class="sidebar">
-
-      <!-- Trip & Profile Customizer -->
-      <div class="card">
-        <div class="card-title">
-          <span>Configure Trip & Profile</span>
-          <button class="btn-outline" id="btnSyncProfile" style="padding: 4px 8px;">💾 Save Profile</button>
-        </div>
-
-        <div class="tabs-nav">
-          <button class="tab-btn active" data-tab="tab-traveler">👤 Traveler</button>
-          <button class="tab-btn" data-tab="tab-route">📍 Route & Dates</button>
-          <button class="tab-btn" data-tab="tab-budget">💰 Budget</button>
-          <button class="tab-btn" data-tab="tab-prefs">⭐ Preferences</button>
-        </div>
-
-        <!-- Tab 1: Traveler -->
-        <div class="tab-content" id="tab-traveler">
-          <div class="form-row">
-            <div class="form-group">
-              <label for="inputTravelerName">Traveler Name</label>
-              <input type="text" id="inputTravelerName" value="Alex Rivera" placeholder="e.g. Alex Rivera" />
-            </div>
-            <div class="form-group">
-              <label for="inputPartySize">Party Size</label>
-              <input type="number" id="inputPartySize" value="1" min="1" max="10" />
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="inputOrigin">Departure Origin</label>
-            <input type="text" id="inputOrigin" value="San Francisco, CA" placeholder="e.g. San Francisco, CA" />
-          </div>
-        </div>
-
-        <!-- Tab 2: Route & Dates -->
-        <div class="tab-content" id="tab-route" style="display: none;">
-          <div class="form-group">
-            <label for="inputDestination">Destination City</label>
-            <input type="text" id="inputDestination" value="Lisbon, Portugal" placeholder="e.g. Lisbon, Portugal" />
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="inputStartDate">Start Date</label>
-              <input type="date" id="inputStartDate" value="2026-10-12" />
-            </div>
-            <div class="form-group">
-              <label for="inputEndDate">End Date</label>
-              <input type="date" id="inputEndDate" value="2026-10-17" />
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="inputNights">Nights Count</label>
-            <input type="number" id="inputNights" value="5" min="1" max="30" />
-          </div>
-        </div>
-
-        <!-- Tab 3: Budget -->
-        <div class="tab-content" id="tab-budget" style="display: none;">
-          <div class="form-group">
-            <label for="inputHardCap">Trip Hard Cap (USD $)</label>
-            <input type="number" id="inputHardCap" value="800" min="100" max="10000" step="50" />
-          </div>
-          <label>Quick Budget Presets</label>
-          <div class="chip-group" id="budgetPresets">
-            <span class="chip" data-val="500">$500 (Ultra Budget)</span>
-            <span class="chip active" data-val="800">$800 (Hackathon Cap)</span>
-            <span class="chip" data-val="1200">$1,200 (Standard)</span>
-            <span class="chip" data-val="1600">$1,600 (Comfort)</span>
-            <span class="chip" data-val="2500">$2,500 (Flexible)</span>
-          </div>
-        </div>
-
-        <!-- Tab 4: Preferences -->
-        <div class="tab-content" id="tab-prefs" style="display: none;">
-          <div class="form-group">
-            <label for="selectPace">Travel Pace</label>
-            <select id="selectPace">
-              <option value="walkable neighborhoods, one major outing per day" selected>Balanced (1 outing/day)</option>
-              <option value="relaxed, slow travel with coffee & viewpoints">Relaxed & Leisurely</option>
-              <option value="fast-paced, maximize sightseeing & landmarks">Packed & Active</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="selectLodging">Preferred Lodging</label>
-            <select id="selectLodging">
-              <option value="central guesthouse or 3-star hotel" selected>Central Guesthouse / 3-Star</option>
-              <option value="hostels or budget dorms">Hostels / Budget Dorms</option>
-              <option value="boutique hotels or cozy Airbnb">Boutique Hotel / Airbnb</option>
-            </select>
-          </div>
-          <label>Interests</label>
-          <div class="chip-group" id="interestChips">
-            <span class="chip active" data-interest="food">Food</span>
-            <span class="chip active" data-interest="history">History</span>
-            <span class="chip active" data-interest="viewpoints">Viewpoints</span>
-            <span class="chip" data-interest="museums">Museums</span>
-            <span class="chip" data-interest="nature">Nature</span>
-            <span class="chip" data-interest="architecture">Architecture</span>
-            <span class="chip" data-interest="nightlife">Nightlife</span>
-          </div>
-          <div class="form-group">
-            <label for="inputDietary">Dietary & Restrictions</label>
-            <input type="text" id="inputDietary" value="no shellfish" placeholder="e.g. no shellfish, vegetarian" />
-          </div>
-        </div>
-
-        <!-- Active Trip Summary Review -->
-        <div class="budget-meter-box">
-          <div class="meter-header">
-            <span>Budget Observer Status</span>
-            <span class="meter-amount" id="meterText">$0 / $800</span>
-          </div>
-          <div class="meter-bar">
-            <div class="meter-fill" id="meterFill"></div>
-          </div>
-          <div class="meter-caption">
-            <span id="routeSummaryLabel">SFO &rarr; Lisbon &bull; 5 nights</span>
-            <span id="budgetInvariantNotice">Cap: $800.00</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Execution Panel -->
-      <div class="card">
-        <div class="card-title">Execution Controls</div>
-        <label for="goalInput">Autonomous Agent Goal</label>
-        <textarea id="goalInput" rows="3">Read travel_profile.json, research realistic 2026 prices with Tavily, add costs with calculate, and produce an itinerary whose Total is <= $800.</textarea>
-
-        <div class="btn-group">
-          <button class="btn-primary" id="btnRunLive">
-            <span>🚀 Run Live Agent</span>
-          </button>
-          <button class="btn-secondary" id="btnReplayTrace">
-            <span>⚡ Instant Demo Replay</span>
-          </button>
-          <button class="btn-secondary" id="btnTriggerViolation">
-            <span>⚠️ Test Budget Guardrail Intercept</span>
+          <button class="btn-poi-add" onclick="injectPlaceFromMap('${escapeHtml(name)}', ${lat}, ${lng}, '${cat}')">
+            ➕ Add to Day
           </button>
         </div>
-      </div>
+      </div>`;
+  }
 
-    </div>
+  container.innerHTML = html;
+}
 
-    <!-- Right Live Feed Panel -->
-    <div class="main-view">
-      <div class="card" style="min-height: 600px;">
-        <div class="feed-header">
-          <div class="card-title" style="margin-bottom: 0;">ReAct Reasoning & Execution Stream</div>
-          <div class="status-indicator">
-            <span class="status-dot" id="statusDot"></span>
-            <span id="stepCounter">Ready to start</span>
+// POI Category Filter Clicks
+document.querySelectorAll('.cat-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentCategory = btn.dataset.cat;
+    const center = miniMap.getCenter();
+    fetchNearbyPlaces(center.lat, center.lng);
+  });
+});
+
+// Inject place chosen directly from Geoapify Map into Itinerary Graph
+async function injectPlaceFromMap(name, lat, lng, cat) {
+  const daySelect = document.getElementById(`daySelect_${lat}_${lng}`);
+  const day = parseInt(daySelect ? daySelect.value : 1) || 1;
+  const cost = cat === 'restaurant' ? 25.0 : (cat === 'hotel' ? 45.0 : 15.0);
+
+  try {
+    const res = await fetch('/api/trip/node', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: name,
+        cost: cost,
+        day: day,
+        hours_spent: 2.0,
+        coordinates: { lat, lng },
+        is_user_added: true,
+        type: cat === 'restaurant' ? 'food' : (cat === 'hotel' ? 'hotel' : 'activity'),
+        intro: `Discovered via Geoapify map in Day ${day}.`
+      })
+    });
+
+    const data = await res.json();
+    if (data.trip_state) {
+      tripState = data.trip_state;
+      renderCenteredGraph(tripState);
+      syncMapMarkers(tripState);
+      toast(`✓ Added "${name}" to Day ${day}`, 'var(--accent3)');
+    }
+  } catch (err) {
+    toast('Error adding place: ' + err.message, 'var(--danger)');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER CENTER ITINERARY GRAPH
+// ═══════════════════════════════════════════════════════
+async function renderCenteredGraph(state) {
+  const container = document.getElementById('dayColumnsContainer');
+  if (!state || !state.nodes || !state.nodes.length) {
+    container.innerHTML = `<div style="color:var(--text-dim);font-size:13px;padding:40px;text-align:center;">No nodes loaded. Run the ReAct agent to generate a plan.</div>`;
+    return;
+  }
+
+  // Update Top Stats
+  document.getElementById('centerStatusFlag').textContent = state.status_flag || 'BALANCED';
+  document.getElementById('centerTotalSpend').textContent = `$${(state.current_total_spend || 0).toFixed(2)}`;
+  document.getElementById('centerBudgetCap').textContent = `$${(state.budget_cap || currentCap).toFixed(2)}`;
+
+  const days = [...new Set(state.nodes.map(n => n.day))].sort((a, b) => a - b);
+  const breakdown = state.daily_breakdown || {};
+  let html = '';
+
+  for (const day of days) {
+    const daySpend = breakdown[day] || 0;
+    const dayNodes = state.nodes.filter(n => n.day === day);
+    const dayEdges = state.edges ? state.edges.filter(e => {
+      const src = state.nodes.find(n => n.id === e.source);
+      return src && src.day === day;
+    }) : [];
+
+    html += `
+      <div class="day-column" data-day="${day}">
+        <div class="day-col-header">
+          <span class="day-col-title">Day ${day}</span>
+          <span class="day-col-spend">$${daySpend.toFixed(2)}</span>
+        </div>`;
+
+    for (let i = 0; i < dayNodes.length; i++) {
+      const node = dayNodes[i];
+      const typeIcon = { hotel: '🏨', activity: '📍', food: '🍽️', custom: '⭐' }[node.type] || '📌';
+      const tagClass = { hotel: 'tag-hotel', activity: 'tag-activity', food: 'tag-food', custom: 'tag-custom' }[node.type] || 'tag-activity';
+      const distHotel = (node.spatial_context?.distance_from_hotel_km || 0).toFixed(1);
+      const distPrev = (node.spatial_context?.distance_from_prev_node_km || 0).toFixed(1);
+
+      // Async Wikipedia preview data
+      const wiki = await getWikiSummary(node.title);
+
+      html += `
+        <div class="node-item ${node.type} ${node.is_user_added ? 'custom' : ''}" data-id="${node.id}" onclick="toggleNodeExpansion(this)">
+          <div class="node-main-row">
+            <div class="node-icon-title">
+              <span class="node-type-emoji">${typeIcon}</span>
+              <span class="node-name">${escapeHtml(node.title)}</span>
+            </div>
+            <span class="node-price">$${node.cost.toFixed(2)}</span>
           </div>
-        </div>
 
-        <div id="stepsContainer" style="margin-top: 16px;">
-          <div class="empty-state">
-            <div class="empty-state-icon">🧭</div>
-            <p>Click <strong>Run Live Agent</strong> to observe the bare-metal ReAct loop executing live in real time.</p>
-            <p style="font-size: 12px; margin-top: 6px; color: var(--text-dim);">Custom budget, traveler details, route, and preferences are automatically transmitted to the agent.</p>
+          <div class="node-sub-row">
+            <span class="node-tag ${tagClass}">${node.is_user_added ? '⭐ Custom' : node.type}</span>
+            <span class="node-time-badge">${node.hours_spent || 2} hrs &bull; 📍 ${distHotel}km</span>
           </div>
-        </div>
 
-        <div id="finalContainer" style="display: none;"></div>
-      </div>
-    </div>
-  </div>
+          <!-- Expanded Body with Wikipedia & Inline Editing -->
+          <div class="node-expanded-body" onclick="event.stopPropagation()">
+            <div class="node-wiki-preview">
+              ${wiki.thumbnail ? `<img src="${wiki.thumbnail}" class="wiki-thumb" alt="${escapeHtml(node.title)}" />` : '<div class="wiki-thumb" style="display:flex;align-items:center;justify-content:center;font-size:20px;">🏛️</div>'}
+              <div class="wiki-text-wrap">
+                <div class="wiki-title-row">
+                  <span>${escapeHtml(wiki.title)}</span>
+                  <a href="${wiki.url}" target="_blank" class="wiki-external-link">Wiki ↗</a>
+                </div>
+                <div>${escapeHtml(wiki.extract)}</div>
+              </div>
+            </div>
 
-  <div id="toast" class="toast" style="display: none;"></div>
+            <div class="node-inputs-grid">
+              <div class="fg">
+                <label>Cost ($)</label>
+                <input type="number" class="in-cost" value="${node.cost}" min="0" step="1" />
+              </div>
+              <div class="fg">
+                <label>Hours Spent</label>
+                <input type="number" class="in-hours" value="${node.hours_spent || 2}" min="0.5" step="0.5" />
+              </div>
+            </div>
 
-  <script>
-    // State & Elements
-    let currentProfile = {};
-    let currentHardCap = 800;
-
-    const stepsContainer = document.getElementById('stepsContainer');
-    const finalContainer = document.getElementById('finalContainer');
-    const stepCounter = document.getElementById('stepCounter');
-    const statusDot = document.getElementById('statusDot');
-    const meterFill = document.getElementById('meterFill');
-    const meterText = document.getElementById('meterText');
-    const routeSummaryLabel = document.getElementById('routeSummaryLabel');
-    const budgetInvariantNotice = document.getElementById('budgetInvariantNotice');
-    const badgeHardCap = document.getElementById('badgeHardCap');
-    const modelSelect = document.getElementById('modelSelect');
-
-    const btnRunLive = document.getElementById('btnRunLive');
-    const btnReplayTrace = document.getElementById('btnReplayTrace');
-    const btnTriggerViolation = document.getElementById('btnTriggerViolation');
-    const btnSyncProfile = document.getElementById('btnSyncProfile');
-    const goalInput = document.getElementById('goalInput');
-
-    // Inputs
-    const inputTravelerName = document.getElementById('inputTravelerName');
-    const inputPartySize = document.getElementById('inputPartySize');
-    const inputOrigin = document.getElementById('inputOrigin');
-    const inputDestination = document.getElementById('inputDestination');
-    const inputStartDate = document.getElementById('inputStartDate');
-    const inputEndDate = document.getElementById('inputEndDate');
-    const inputNights = document.getElementById('inputNights');
-    const inputHardCap = document.getElementById('inputHardCap');
-    const selectPace = document.getElementById('selectPace');
-    const selectLodging = document.getElementById('selectLodging');
-    const inputDietary = document.getElementById('inputDietary');
-
-    // Tab switcher
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-        btn.classList.add('active');
-        const targetId = btn.getAttribute('data-tab');
-        document.getElementById(targetId).style.display = 'block';
-      });
-    });
-
-    // Budget Preset Chips
-    document.querySelectorAll('#budgetPresets .chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        document.querySelectorAll('#budgetPresets .chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        const val = parseFloat(chip.getAttribute('data-val'));
-        inputHardCap.value = val;
-        onBudgetChange(val);
-      });
-    });
-
-    // Interest Chips
-    document.querySelectorAll('#interestChips .chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        chip.classList.toggle('active');
-        updateAutoGoal();
-      });
-    });
-
-    inputHardCap.addEventListener('input', (e) => {
-      const val = parseFloat(e.target.value) || 800;
-      onBudgetChange(val);
-    });
-
-    [inputTravelerName, inputOrigin, inputDestination, inputNights, inputDietary].forEach(el => {
-      el.addEventListener('input', updateAutoGoal);
-    });
-
-    function onBudgetChange(cap) {
-      currentHardCap = cap;
-      badgeHardCap.textContent = `CAP: $${cap.toFixed(0)}`;
-      budgetInvariantNotice.textContent = `Cap: $${cap.toFixed(2)}`;
-      updateBudgetMeter(0);
-      updateAutoGoal();
-    }
-
-    function updateBudgetMeter(amount) {
-      const cap = currentHardCap || 800;
-      const pct = Math.min(100, Math.max(0, (amount / cap) * 100));
-      meterFill.style.width = pct + '%';
-      meterText.textContent = `$${amount.toFixed(2)} / $${cap.toFixed(2)}`;
-
-      if (amount > cap) {
-        meterFill.className = 'meter-fill danger';
-      } else {
-        meterFill.className = 'meter-fill safe';
-      }
-    }
-
-    function showToast(msg) {
-      const toast = document.getElementById('toast');
-      toast.textContent = msg;
-      toast.style.display = 'block';
-      setTimeout(() => { toast.style.display = 'none'; }, 3000);
-    }
-
-    function updateAutoGoal() {
-      const name = inputTravelerName.value.trim() || 'the traveler';
-      const origin = inputOrigin.value.trim() || 'origin';
-      const dest = inputDestination.value.trim() || 'destination';
-      const nights = inputNights.value.trim() || '5';
-      const cap = parseFloat(inputHardCap.value) || 800;
-
-      routeSummaryLabel.textContent = `${origin} → ${dest} • ${nights} nights`;
-      goalInput.value = `Read travel_profile.json, research realistic 2026 prices for ${name} traveling from ${origin} to ${dest} (${nights} nights) with Tavily, add costs with calculate, and produce an itinerary whose Total is <= $${cap.toFixed(0)}.`;
-    }
-
-    function getFormProfile() {
-      const selectedInterests = Array.from(document.querySelectorAll('#interestChips .chip.active'))
-        .map(c => c.getAttribute('data-interest'));
-      const diet = inputDietary.value.split(',').map(s => s.trim()).filter(Boolean);
-
-      return {
-        traveler: {
-          name: inputTravelerName.value.trim(),
-          origin: inputOrigin.value.trim(),
-          party_size: parseInt(inputPartySize.value) || 1
-        },
-        trip: {
-          destination: inputDestination.value.trim(),
-          start_date: inputStartDate.value,
-          end_date: inputEndDate.value,
-          nights: parseInt(inputNights.value) || 5
-        },
-        budget: {
-          currency: "USD",
-          hard_cap: parseFloat(inputHardCap.value) || 800,
-          rule: `Total spend must be less than or equal to $${parseFloat(inputHardCap.value) || 800}`
-        },
-        preferences: {
-          pace: selectPace.value,
-          lodging: selectLodging.value,
-          interests: selectedInterests,
-          dietary: diet,
-          avoid: ["all-inclusive resorts", "overnight buses"]
-        }
-      };
-    }
-
-    async function loadProfile() {
-      try {
-        const res = await fetch('/api/profile');
-        if (!res.ok) return;
-        const p = await res.json();
-        currentProfile = p;
-
-        if (p.traveler) {
-          inputTravelerName.value = p.traveler.name || 'Alex Rivera';
-          inputPartySize.value = p.traveler.party_size || 1;
-          inputOrigin.value = p.traveler.origin || 'San Francisco, CA';
-        }
-        if (p.trip) {
-          inputDestination.value = p.trip.destination || 'Lisbon, Portugal';
-          inputStartDate.value = p.trip.start_date || '2026-10-12';
-          inputEndDate.value = p.trip.end_date || '2026-10-17';
-          inputNights.value = p.trip.nights || 5;
-        }
-        if (p.budget) {
-          const cap = parseFloat(p.budget.hard_cap) || 800;
-          inputHardCap.value = cap;
-          onBudgetChange(cap);
-        }
-        if (p.preferences) {
-          if (p.preferences.pace) selectPace.value = p.preferences.pace;
-          if (p.preferences.lodging) selectLodging.value = p.preferences.lodging;
-          if (p.preferences.dietary) inputDietary.value = p.preferences.dietary.join(', ');
-
-          const interests = p.preferences.interests || [];
-          document.querySelectorAll('#interestChips .chip').forEach(c => {
-            const val = c.getAttribute('data-interest');
-            if (interests.includes(val)) c.classList.add('active');
-            else c.classList.remove('active');
-          });
-        }
-
-        updateAutoGoal();
-      } catch (err) {
-        console.warn('Could not load profile:', err);
-      }
-    }
-
-    async function saveProfile() {
-      const profile = getFormProfile();
-      try {
-        const res = await fetch('/api/profile', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(profile)
-        });
-        const data = await res.json();
-        if (data.status === 'success') {
-          showToast('✓ Profile saved to travel_profile.json');
-          updateAutoGoal();
-        } else {
-          alert('Error saving profile: ' + data.error);
-        }
-      } catch (err) {
-        alert('Network error saving profile: ' + err.message);
-      }
-    }
-
-    btnSyncProfile.addEventListener('click', saveProfile);
-
-    function clearFeed() {
-      stepsContainer.innerHTML = '';
-      finalContainer.innerHTML = '';
-      finalContainer.style.display = 'none';
-      updateBudgetMeter(0);
-    }
-
-    function addStepCard(step, thought, action, actionInput, observation, isViolation, isOk) {
-      const card = document.createElement('div');
-      card.className = 'step-card';
-
-      let actionHtml = '';
-      if (action) {
-        actionHtml = `
-          <div class="action-box">
-            <span class="action-name">Action: ${escapeHtml(action)}</span>
-            <span class="action-input">${escapeHtml(actionInput || '')}</span>
+            <div class="node-ctrl-btns">
+              <button class="btn-n-save" onclick="saveNodeEdit('${node.id}', this)">💾 Save</button>
+              <button class="btn-n-map" onclick="centerMapOnNode(${node.coordinates?.lat || 38.71}, ${node.coordinates?.lng || -9.14})">🎯 View on Map</button>
+              <button class="btn-n-del" onclick="deleteNode('${node.id}')">🗑️</button>
+            </div>
           </div>
-        `;
+        </div>`;
+
+      // Edge indicator between sequential nodes
+      const edge = dayEdges.find(e => e.source === node.id);
+      if (edge) {
+        html += `<div class="edge-link"><span class="edge-link-badge">↓ ${escapeHtml(edge.label)}</span></div>`;
       }
-
-      let badgeHtml = '';
-      if (isViolation) {
-        badgeHtml = `<div class="tag-violation">⛔ BUDGET OBSERVER INTERCEPT: Exceeded $${currentHardCap.toFixed(2)} Hard Cap</div>`;
-      } else if (isOk) {
-        badgeHtml = `<div class="tag-ok">✅ BUDGET OBSERVER: Approved (&le; $${currentHardCap.toFixed(2)})</div>`;
-      }
-
-      card.innerHTML = `
-        <div class="step-badge">STEP ${step} &bull; REACT CYCLE</div>
-        ${thought ? `<div class="thought-box"><strong>Thought:</strong> ${escapeHtml(thought)}</div>` : ''}
-        ${actionHtml}
-        ${observation ? `<div class="observation-box"><strong>Observation:</strong>\n${escapeHtml(observation)}</div>` : ''}
-        ${badgeHtml}
-      `;
-
-      stepsContainer.appendChild(card);
-      card.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
 
-    function showFinalAnswer(content, approved) {
-      finalContainer.style.display = 'block';
-      finalContainer.innerHTML = `
-        <div class="final-answer-card">
-          <h3>
-            <span>${approved ? '🎉 Itinerary Finalized & Budget Approved' : '⚠️ Itinerary Flagged'}</span>
-          </h3>
-          <div class="final-content">${escapeHtml(content)}</div>
-        </div>
-      `;
-      finalContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    html += `
+        <button class="btn-add-to-day" onclick="promptAddPlace(${day})">
+          <span>➕ Add Place to Day ${day}</span>
+        </button>
+      </div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+function toggleNodeExpansion(el) {
+  const isExp = el.classList.contains('expanded');
+  document.querySelectorAll('.node-item.expanded').forEach(i => i.classList.remove('expanded'));
+  if (!isExp) el.classList.add('expanded');
+}
+
+function centerMapOnNode(lat, lng) {
+  if (miniMap && lat && lng) {
+    miniMap.flyTo([lat, lng], 14, { duration: 1.2 });
+    fetchNearbyPlaces(lat, lng);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// SYNC MAP PINS WITH GRAPH
+// ═══════════════════════════════════════════════════════
+function syncMapMarkers(state) {
+  mapMarkers.forEach(m => miniMap.removeLayer(m));
+  routeLines.forEach(r => miniMap.removeLayer(r));
+  mapMarkers = []; routeLines = [];
+
+  if (!state || !state.nodes) return;
+
+  const colorMap = { hotel: '#818cf8', activity: '#38bdf8', food: '#34d399', custom: '#fbbf24' };
+  const points = [];
+
+  state.nodes.forEach(n => {
+    if (!n.coordinates) return;
+    const lat = n.coordinates.lat, lng = n.coordinates.lng;
+    points.push([lat, lng]);
+
+    const marker = L.circleMarker([lat, lng], {
+      radius: n.type === 'hotel' ? 8 : 6,
+      fillColor: colorMap[n.type] || '#38bdf8',
+      color: '#050813', weight: 2, fillOpacity: 0.9
+    }).addTo(miniMap);
+
+    marker.bindTooltip(`<b>${escapeHtml(n.title)}</b><br>$${n.cost.toFixed(2)} (Day ${n.day})`, {
+      className: 'dist-label'
+    });
+
+    mapMarkers.push(marker);
+  });
+
+  if (points.length) {
+    miniMap.fitBounds(points, { padding: [30, 30] });
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// NODE EDIT & DELETE ACTIONS
+// ═══════════════════════════════════════════════════════
+async function saveNodeEdit(nodeId, btn) {
+  const card = document.querySelector(`[data-id="${nodeId}"]`);
+  const cost = parseFloat(card.querySelector('.in-cost').value) || 0;
+  const hours = parseFloat(card.querySelector('.in-hours').value) || 2;
+
+  try {
+    const res = await fetch('/api/trip/node/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: nodeId, cost, hours_spent: hours })
+    });
+    const data = await res.json();
+    if (data.trip_state) {
+      tripState = data.trip_state;
+      renderCenteredGraph(tripState);
+      syncMapMarkers(tripState);
+      toast('✓ Place updated', 'var(--accent3)');
     }
+  } catch (err) {
+    toast('Error updating: ' + err.message, 'var(--danger)');
+  }
+}
 
-    function escapeHtml(text) {
-      return (text || '')
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+async function deleteNode(nodeId) {
+  try {
+    const res = await fetch('/api/trip/node/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: nodeId })
+    });
+    const data = await res.json();
+    if (data.trip_state) {
+      tripState = data.trip_state;
+      renderCenteredGraph(tripState);
+      syncMapMarkers(tripState);
+      toast('✓ Place removed', 'var(--warning)');
     }
+  } catch (err) {
+    toast('Error: ' + err.message, 'var(--danger)');
+  }
+}
 
-    // Run Live Agent with Real-Time Server-Sent Events (SSE)
-    async function runLiveAgent() {
-      // First auto-save current form settings to travel_profile.json
-      const profile = getFormProfile();
-      await fetch('/api/profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profile)
-      });
+function promptAddPlace(day) {
+  const title = prompt(`Enter place name to add to Day ${day}:`);
+  if (!title) return;
+  const costStr = prompt(`Estimated cost in USD ($):`, "20");
+  const cost = parseFloat(costStr) || 20;
 
-      clearFeed();
-      btnRunLive.disabled = true;
-      btnReplayTrace.disabled = true;
-      btnTriggerViolation.disabled = true;
+  injectPlaceFromMap(title, 38.7138, -9.1394, 'activity');
+}
 
-      statusDot.className = 'status-dot active';
-      stepCounter.innerHTML = `<span class="spinner"></span> Live ReAct Agent Running...`;
+// ═══════════════════════════════════════════════════════
+// LIVE REACT STREAMING (SSE)
+// ═══════════════════════════════════════════════════════
+async function runLiveAgent() {
+  await saveProfile();
+  if (!appEl.classList.contains('sidebar-open')) {
+    appEl.classList.add('sidebar-open');
+    btnToggleSidebar.classList.add('active');
+    setTimeout(() => { if (miniMap) miniMap.invalidateSize(); }, 360);
+  }
 
-      const requestPayload = {
-        goal: goalInput.value.trim(),
-        hard_cap: currentHardCap,
-        model: modelSelect.value,
-        profile: profile
-      };
+  const cliFeed = document.getElementById('cliFeed');
+  cliFeed.innerHTML = '';
+  document.getElementById('cliStatusDot').className = 'status-dot running';
 
-      try {
-        // Use fetch with ReadableStream for SSE streaming over POST
-        const res = await fetch('/api/run/stream', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestPayload)
-        });
+  try {
+    const res = await fetch('/api/run/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        goal: document.getElementById('goalInput').value.trim(),
+        hard_cap: currentCap,
+        model: 'openai/gpt-oss-120b',
+        profile: getFormProfile()
+      })
+    });
 
-        if (!res.ok) {
-          throw new Error(`Server returned HTTP ${res.status}`);
-        }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
 
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n\n');
+      buffer = lines.pop();
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n\n');
-          buffer = lines.pop(); // keep remainder
+      for (const chunk of lines) {
+        const line = chunk.trim();
+        if (!line.startsWith('data:')) continue;
+        const jsonStr = line.substring(5).trim();
+        if (!jsonStr) continue;
 
-          for (const chunk of lines) {
-            const line = chunk.trim();
-            if (!line.startsWith('data:')) continue;
+        try {
+          const event = JSON.parse(jsonStr);
+          renderCliEvent(event);
 
-            const jsonStr = line.substring(5).trim();
-            if (!jsonStr) continue;
-
-            try {
-              const event = JSON.parse(jsonStr);
-
-              if (event.type === 'start') {
-                stepCounter.innerHTML = `<span class="spinner"></span> Initializing plan with ${escapeHtml(event.model)}...`;
-              } else if (event.type === 'step') {
-                stepCounter.innerHTML = `<span class="spinner"></span> Step ${event.step} executed...`;
-
-                const obs = event.observation || '';
-                const isVio = obs.includes('[BUDGET VIOLATION]');
-                const isOk = obs.includes('[BUDGET OK]');
-
-                // Update budget meter if a calculation or observation has dollar amount
-                const calcMatch = obs.match(/\b([0-9]+(?:\.[0-9]+)?)\b/);
-                if (calcMatch && (isVio || isOk)) {
-                  updateBudgetMeter(parseFloat(calcMatch[1]));
-                }
-
-                addStepCard(event.step, event.thought, event.action, event.action_input, obs, isVio, isOk);
-              } else if (event.type === 'final') {
-                const approved = event.final_answer.includes('[BUDGET OBSERVER - APPROVED]');
-                showFinalAnswer(event.final_answer, approved);
-                statusDot.className = 'status-dot done';
-                stepCounter.textContent = approved ? '✓ Execution Completed & Approved' : '⚠️ Execution Completed (Flagged)';
-                if (approved) updateBudgetMeter(currentHardCap);
-              } else if (event.type === 'error') {
-                throw new Error(event.error);
-              }
-            } catch (parseErr) {
-              console.warn('Error parsing SSE event:', parseErr, jsonStr);
-            }
+          if (event.type === 'step' && event.step % 3 === 0) {
+            loadTripState();
           }
-        }
-
-      } catch (err) {
-        statusDot.className = 'status-dot';
-        stepCounter.textContent = 'Error executing live agent';
-        alert('Live Agent Error: ' + err.message);
-      } finally {
-        btnRunLive.disabled = false;
-        btnReplayTrace.disabled = false;
-        btnTriggerViolation.disabled = false;
+          if (event.type === 'final') {
+            document.getElementById('cliStatusDot').className = 'status-dot done';
+            loadTripState();
+          }
+        } catch (e) {}
       }
     }
+  } catch (err) {
+    document.getElementById('cliStatusDot').className = 'status-dot error';
+    toast('Agent stream error: ' + err.message, 'var(--danger)');
+  }
+}
 
-    // Demo Replay
-    async function replayDemo() {
-      clearFeed();
-      btnReplayTrace.disabled = true;
-      btnRunLive.disabled = true;
-      btnTriggerViolation.disabled = true;
-      statusDot.className = 'status-dot active';
+function renderCliEvent(e) {
+  const feed = document.getElementById('cliFeed');
+  const div = document.createElement('div');
+  div.className = 'cli-card';
 
-      const demoSteps = [
-        {
-          step: 1,
-          thought: `I will read travel_profile.json to extract traveler ${inputTravelerName.value}'s route and $${currentHardCap} budget cap.`,
-          action: "read_file",
-          actionInput: "travel_profile.json",
-          observation: JSON.stringify(getFormProfile(), null, 2),
-          amount: 0
-        },
-        {
-          step: 2,
-          thought: `Querying Tavily for round-trip flights from ${inputOrigin.value} to ${inputDestination.value}.`,
-          action: "search",
-          actionInput: `${inputOrigin.value} to ${inputDestination.value} round trip flight price October 2026 budget`,
-          observation: '[\n  { "title": "TAP Air Portugal SFO - LIS Deals 2026", "snippet": "Round trip flights average $475 - $520 booked in advance." }\n]',
-          amount: 0
-        },
-        {
-          step: 3,
-          thought: `Searching for central budget lodging in ${inputDestination.value} for ${inputNights.value} nights.`,
-          action: "search",
-          actionInput: `${inputDestination.value} central guesthouse price October 2026`,
-          observation: '[\n  { "title": "Lisbon Budget Guesthouses & Hostels", "snippet": "Average central guesthouse rate is $30 - $40 per night." }\n]',
-          amount: 0
-        },
-        {
-          step: 4,
-          thought: `Testing initial higher-end estimate: Flights ($520) + Lodging ($45*5 = $225) + Dining ($40*5 = $200) + Transit ($60).`,
-          action: "calculate",
-          actionInput: `520 + 45*5 + 40*5 + 60`,
-          observation: `1005\n[BUDGET VIOLATION] calculate(520 + 45*5 + 40*5 + 60) = 1005.00 exceeds hard cap of $${currentHardCap.toFixed(2)}. Revise the plan to stay at or under $${currentHardCap.toFixed(2)}.`,
-          isViolation: true,
-          amount: 1005
-        },
-        {
-          step: 5,
-          thought: `Total of $1005 exceeded our $${currentHardCap} limit. Optimizing with cheaper flights ($475) and guesthouse ($30*5) and daily food ($25*5).`,
-          action: "calculate",
-          actionInput: `475 + 30*5 + 25*5 + 50`,
-          observation: `800\n[BUDGET OK] 800.00 is within the $${currentHardCap.toFixed(2)} cap.`,
-          isOk: true,
-          amount: 800
-        },
-        {
-          step: 6,
-          thought: `The sum strictly adheres to the $${currentHardCap} invariant. Formulating finalized itinerary.`,
-          final: `${inputDestination.value} ${inputNights.value}-Night Verified Itinerary for ${inputTravelerName.value}
+  if (e.type === 'start') {
+    div.innerHTML = `<div class="cli-badge">⟳ Initializing ReAct Engine</div><div class="cli-thought-text">${escapeHtml(e.goal)}</div>`;
+  } else if (e.type === 'step') {
+    const isVio = (e.observation || '').includes('[BUDGET VIOLATION]');
+    const isOk = (e.observation || '').includes('[BUDGET OK]');
+    div.innerHTML = `
+      <div class="cli-badge">Step ${e.step}</div>
+      ${e.thought ? `<div class="cli-thought-text">${escapeHtml(e.thought)}</div>` : ''}
+      ${e.action ? `<div class="cli-action-row"><span class="cli-act-badge">${escapeHtml(e.action)}</span><span class="cli-act-in">${escapeHtml(e.action_input||'')}</span></div>` : ''}
+      ${e.observation ? `<div class="cli-obs-text">${escapeHtml(e.observation)}</div>` : ''}
+      ${isVio ? `<div class="cli-violation-box">⛔ BUDGET INTERCEPT: Cap $${currentCap.toFixed(2)} exceeded</div>` : ''}
+      ${isOk ? `<div class="cli-ok-box">✅ APPROVED: Total within cap</div>` : ''}
+    `;
+  } else if (e.type === 'final') {
+    div.innerHTML = `
+      <div style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.4);border-radius:var(--r-md);padding:10px;margin-top:6px;font-size:11px;color:var(--text);white-space:pre-wrap;">
+        <b style="color:var(--accent3);">🎉 Finalized Itinerary:</b>\n${escapeHtml(e.final_answer)}
+      </div>`;
+  }
 
-Line-Item Cost Breakdown:
-• Round-trip Flights: $475.00
-• Central Lodging (${inputNights.value} nights × $30): $150.00
-• Meals & Dining (${inputNights.value} days × $25): $125.00
-• City Transit & Sightseeing Pass: $50.00
-─────────────────────────────────────────────
-Total: $800.00
+  feed.appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
 
-[BUDGET OBSERVER - APPROVED]
-Total budget verification: Reported total $800.00 is <= $${currentHardCap.toFixed(2)}. (Hard Cap: $${currentHardCap.toFixed(2)})`
-        }
-      ];
+// ═══════════════════════════════════════════════════════
+// DEMO SIMULATION & GUARDRAIL TEST
+// ═══════════════════════════════════════════════════════
+async function runDemoSimulation() {
+  if (!appEl.classList.contains('sidebar-open')) {
+    appEl.classList.add('sidebar-open');
+    btnToggleSidebar.classList.add('active');
+    setTimeout(() => { if (miniMap) miniMap.invalidateSize(); }, 360);
+  }
+  const feed = document.getElementById('cliFeed');
+  feed.innerHTML = '';
+  document.getElementById('cliStatusDot').className = 'status-dot running';
 
-      for (let i = 0; i < demoSteps.length; i++) {
-        const item = demoSteps[i];
-        stepCounter.textContent = `Demo Step ${item.step} of ${demoSteps.length}...`;
-        if (item.amount) updateBudgetMeter(item.amount);
+  const steps = [
+    { type: 'start', goal: `Research 5-day Lisbon itinerary for Alex Rivera with <= $${currentCap} cap.` },
+    { type: 'step', step: 1, thought: `Checking travel_profile.json for budget limits and preferences.`, action: 'read_file', action_input: 'travel_profile.json', observation: '{"budget": {"hard_cap": 800}}' },
+    { type: 'step', step: 2, thought: `Searching Tavily for round-trip flights from SFO to Lisbon.`, action: 'search', action_input: 'SFO to Lisbon flight prices 2026', observation: '[{"title": "TAP Flights", "snippet": "Average round-trip $475."}]' },
+    { type: 'step', step: 3, thought: `Estimating total: Flights ($475) + Guesthouse ($30×5) + Dining ($25×5) + Sightseeing ($50).`, action: 'calculate', action_input: '475 + 150 + 125 + 50', observation: '800\n[BUDGET OK] 800.00 is within $800 cap.' },
+    { type: 'final', final_answer: `Lisbon 5-Night Verified Plan\n• Flights: $475.00\n• Lodging: $150.00\n• Food: $125.00\n• Transit & Sights: $50.00\n───────────\nTotal: $800.00\n[BUDGET OBSERVER - APPROVED]` }
+  ];
 
-        if (item.final) {
-          showFinalAnswer(item.final, true);
-        } else {
-          addStepCard(item.step, item.thought, item.action, item.actionInput, item.observation, item.isViolation, item.isOk);
-        }
-        await new Promise(r => setTimeout(r, 700));
-      }
+  for (const s of steps) {
+    renderCliEvent(s);
+    await new Promise(r => setTimeout(r, 600));
+  }
+  document.getElementById('cliStatusDot').className = 'status-dot done';
+}
 
-      statusDot.className = 'status-dot done';
-      stepCounter.textContent = 'Demo complete (Budget verified)';
-      btnReplayTrace.disabled = false;
-      btnRunLive.disabled = false;
-      btnTriggerViolation.disabled = false;
+// ═══════════════════════════════════════════════════════
+// PROFILE & STATE LOAD/SAVE
+// ═══════════════════════════════════════════════════════
+function getFormProfile() {
+  return {
+    traveler: {
+      name: document.getElementById('travelerName').value.trim(),
+      origin: document.getElementById('origin').value.trim(),
+      party_size: parseInt(document.getElementById('partySize').value) || 1
+    },
+    trip: {
+      destination: document.getElementById('topDest').value.trim(),
+      nights: parseInt(document.getElementById('topNights').value) || 5
+    },
+    budget: { currency: "USD", hard_cap: currentCap }
+  };
+}
+
+async function loadProfile() {
+  try {
+    const res = await fetch('/api/profile');
+    if (!res.ok) return;
+    const p = await res.json();
+    if (p.traveler) {
+      document.getElementById('travelerName').value = p.traveler.name || 'Alex Rivera';
+      document.getElementById('origin').value = p.traveler.origin || 'San Francisco, CA';
+      document.getElementById('partySize').value = p.traveler.party_size || 1;
     }
-
-    // Test Budget Guardrail Intercept
-    async function testBudgetViolation() {
-      clearFeed();
-      statusDot.className = 'status-dot active';
-      stepCounter.textContent = `Demonstrating Programmatic Budget Guardrail (Cap: $${currentHardCap})...`;
-      updateBudgetMeter(currentHardCap + 450);
-
-      addStepCard(
-        1,
-        `User requested a luxury 5-star hotel ($350/night) + $600 private flights.`,
-        "calculate",
-        `600 + 350*${inputNights.value}`,
-        `${600 + 350 * parseInt(inputNights.value)}\n[BUDGET VIOLATION] calculate(600 + 350*${inputNights.value}) = ${600 + 350 * parseInt(inputNights.value)}.00 exceeds hard cap of $${currentHardCap.toFixed(2)}. Revise the plan to stay at or under $${currentHardCap.toFixed(2)}.`,
-        true,
-        false
-      );
-
-      await new Promise(r => setTimeout(r, 600));
-
-      showFinalAnswer(
-        `Proposal Intercepted by Programmatic Invariant Guardrail:
-
-[BUDGET OBSERVER - REJECTED]
-Violation: Reported total $${600 + 350 * parseInt(inputNights.value)}.00 exceeds hard cap of $${currentHardCap.toFixed(2)}.
-Trip hard cap is $${currentHardCap.toFixed(2)}.`,
-        false
-      );
-
-      statusDot.className = 'status-dot';
-      stepCounter.textContent = 'Invariant Violation Intercepted';
+    if (p.trip) {
+      document.getElementById('topDest').value = p.trip.destination || 'Lisbon, Portugal';
+      document.getElementById('topNights').value = p.trip.nights || 5;
     }
+    if (p.budget) {
+      currentCap = parseFloat(p.budget.hard_cap) || 800;
+      document.getElementById('topCap').value = currentCap;
+      document.getElementById('capBadge').textContent = `CAP: $${currentCap.toFixed(0)}`;
+    }
+    rebuildGoal();
+  } catch (err) {}
+}
 
-    btnReplayTrace.addEventListener('click', replayDemo);
-    btnTriggerViolation.addEventListener('click', testBudgetViolation);
-    btnRunLive.addEventListener('click', runLiveAgent);
+async function saveProfile() {
+  try {
+    const res = await fetch('/api/profile', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(getFormProfile())
+    });
+    const data = await res.json();
+    if (data.status === 'success') toast('✓ Profile saved to travel_profile.json', 'var(--accent3)');
+  } catch (err) {}
+}
 
-    // Initial Load
-    loadProfile();
-  </script>
+async function loadTripState() {
+  try {
+    const res = await fetch('/api/trip/state');
+    if (!res.ok) return;
+    tripState = await res.json();
+    renderCenteredGraph(tripState);
+    syncMapMarkers(tripState);
+  } catch (err) {}
+}
+
+function rebuildGoal() {
+  const name = document.getElementById('travelerName').value || 'the traveler';
+  const dest = document.getElementById('topDest').value || 'destination';
+  const nights = document.getElementById('topNights').value || '5';
+  const cap = currentCap;
+  document.getElementById('goalInput').value = `Read travel_profile.json, research realistic 2026 prices for ${name} traveling to ${dest} (${nights} nights) with Tavily, and produce an itinerary whose Total is <= $${cap.toFixed(0)}.`;
+}
+
+// ═══════════════════════════════════════════════════════
+// JSON UPLOAD
+// ═══════════════════════════════════════════════════════
+const dropZone = document.getElementById('jsonDropZone');
+const fileIn = document.getElementById('jsonFileInput');
+dropZone.addEventListener('click', () => fileIn.click());
+fileIn.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      await fetch('/api/profile', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parsed)
+      });
+      toast('✓ JSON uploaded & loaded', 'var(--accent3)');
+      loadProfile();
+    } catch (err) { toast('Invalid JSON: ' + err.message, 'var(--danger)'); }
+  };
+  reader.readAsText(file);
+});
+
+// Helper utilities
+function escapeHtml(t) {
+  return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function toast(msg, color = 'var(--accent)') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.color = color;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Topbar sync events
+['topDest', 'topNights', 'topCap'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    currentCap = parseFloat(document.getElementById('topCap').value) || 800;
+    document.getElementById('capBadge').textContent = `CAP: $${currentCap.toFixed(0)}`;
+    rebuildGoal();
+  });
+});
+
+document.getElementById('btnSaveProfile').addEventListener('click', saveProfile);
+document.getElementById('btnRunAgentTop').addEventListener('click', runLiveAgent);
+document.getElementById('btnRunLiveSide').addEventListener('click', runLiveAgent);
+document.getElementById('btnDemoStream').addEventListener('click', runDemoSimulation);
+document.getElementById('btnClearStream').addEventListener('click', () => {
+  document.getElementById('cliFeed').innerHTML = '';
+});
+
+// ═══════════════════════════════════════════════════════
+// INITIALIZATION
+// ═══════════════════════════════════════════════════════
+initGeoapifyMap();
+loadProfile().then(() => {
+  loadTripState();
+  // Fetch initial POIs in Lisbon
+  fetchNearbyPlaces(38.7169, -9.1399);
+});
+</script>
 </body>
 </html>
