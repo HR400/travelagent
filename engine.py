@@ -283,10 +283,6 @@ def retry_with_backoff(
 
     return decorator
 
-        return wrapper
-
-    return decorator
-
 
 def _quota_message(exc: RateLimitError) -> str:
     body = str(exc)
@@ -399,8 +395,8 @@ def run_react(
 
     # Automatic model fallback cascade (especially helpful for Groq tiers)
     is_groq = client.base_url and "groq.com" in str(client.base_url)
-    # Only use models known to be available (qwen is excluded: daily TPD limit hits fast)
-    fallback_models = ["openai/gpt-oss-120b", "openai/gpt-oss-20b"] if is_groq else []
+    # Use models that correctly output text ReAct format without Groq tool 400 errors
+    fallback_models = ["openai/gpt-oss-120b", "qwen/qwen3.8-27b"] if is_groq else []
     candidate_models = [resolved_model] + [m for m in fallback_models if m != resolved_model]
 
     messages: list[dict[str, str]] = [

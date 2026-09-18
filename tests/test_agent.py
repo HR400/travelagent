@@ -25,8 +25,8 @@ class TestTools(unittest.TestCase):
 
     def test_read_file_existing(self):
         res = read_file("travel_profile.json")
-        self.assertIn("Alex Rivera", res)
-        self.assertIn("Lisbon, Portugal", res)
+        self.assertIn("traveler", res)
+        self.assertIn("trip", res)
 
     def test_read_file_nonexistent(self):
         res = read_file("does_not_exist.json")

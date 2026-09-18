@@ -45,6 +45,11 @@ class Config:
     # Health Check
     health_check_enabled: bool = True
 
+    # MongoDB Settings
+    mongo_uri: str = "mongodb://localhost:27017"
+    mongo_db_name: str = "travelagent"
+    mongo_timeout_ms: int = 2000
+
     @classmethod
     def from_env(cls, env_path: Path | None = None) -> "Config":
         """Load configuration from environment variables with validation."""
@@ -70,6 +75,9 @@ class Config:
             log_level=os.environ.get("LOG_LEVEL", "INFO"),
             log_format=os.environ.get("LOG_FORMAT", "json"),
             health_check_enabled=os.environ.get("HEALTH_CHECK_ENABLED", "true").lower() == "true",
+            mongo_uri=os.environ.get("MONGO_URI", "mongodb://localhost:27017"),
+            mongo_db_name=os.environ.get("MONGO_DB_NAME", "travelagent"),
+            mongo_timeout_ms=int(os.environ.get("MONGO_TIMEOUT_MS", "2000")),
         )
 
         config.validate()
@@ -124,6 +132,9 @@ class Config:
             "has_openai_key": bool(self.openai_api_key),
             "has_groq_key": bool(self.groq_api_key),
             "has_tavily_key": bool(self.tavily_api_key),
+            "mongo_uri": self.mongo_uri,
+            "mongo_db_name": self.mongo_db_name,
+            "mongo_timeout_ms": self.mongo_timeout_ms,
         }
 
 

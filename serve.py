@@ -127,7 +127,7 @@ class AgentHandler(BaseHTTPRequestHandler):
                 {
                     "models": [
                         {"id": "openai/gpt-oss-120b", "name": "GPT-OSS 120B (Recommended)", "provider": "Groq"},
-                        {"id": "openai/gpt-oss-20b", "name": "GPT-OSS 20B (Fast)", "provider": "Groq"},
+                        {"id": "qwen/qwen3.8-27b", "name": "Qwen 3.8 27B (Fast Fallback)", "provider": "Groq"},
                     ],
                     "default": "openai/gpt-oss-120b",
                 },
@@ -227,11 +227,15 @@ class AgentHandler(BaseHTTPRequestHandler):
                 self.send_header("X-Accel-Buffering", "no")
                 self.end_headers()
 
-                def send_event(event_type: str, payload: dict) -> None:
-                    payload["type"] = event_type
-                    raw_msg = f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
-                    self.wfile.write(raw_msg)
-                    self.wfile.flush()
+                def send_event(event_type: str, payload: dict) -> bool:
+                    try:
+                        payload["type"] = event_type
+                        raw_msg = f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+                        self.wfile.write(raw_msg)
+                        self.wfile.flush()
+                        return True
+                    except (ConnectionResetError, BrokenPipeError):
+                        return False
 
                 send_event("start", {"goal": goal, "hard_cap": hard_cap, "model": model})
 
