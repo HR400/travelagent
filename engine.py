@@ -6,7 +6,7 @@ import os
 import re
 from dataclasses import dataclass, field
 
-from openai import OpenAI
+from openai import APIError, AuthenticationError, OpenAI, RateLimitError
 
 from tools import TOOL_REGISTRY, TOOL_SPECS, calculate
 
@@ -147,6 +147,18 @@ def _dispatch(action: str, action_input: str, observer: BudgetObserver) -> str:
     return observer.observe_text(observation)
 
 
+def _quota_message(exc: RateLimitError) -> str:
+    body = str(exc)
+    if "insufficient_quota" in body or "credit_balance_exhausted" in body or "no credits" in body.lower():
+        return (
+            "OpenAI API has no credits remaining (HTTP 429).\n"
+            "Tools (read_file, calculate, Tavily) are fine; the ReAct loop needs a paid API key.\n"
+            "Add credit at https://platform.openai.com/settings/organization/billing\n"
+            "ChatGPT Plus does not cover the API."
+        )
+    return f"OpenAI rate limit (HTTP 429): {exc}"
+
+
 def run_react(
     user_goal: str,
     *,
@@ -167,11 +179,20 @@ def run_react(
     ]
 
     for step in range(1, max_steps + 1):
-        response = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=0.2,
-        )
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=0.2,
+            )
+        except RateLimitError as exc:
+            raise RuntimeError(_quota_message(exc)) from exc
+        except AuthenticationError as exc:
+            raise RuntimeError(
+                "OpenAI authentication failed. Check OPENAI_API_KEY in .env."
+            ) from exc
+        except APIError as exc:
+            raise RuntimeError(f"OpenAI API error: {exc}") from exc
         content = response.choices[0].message.content or ""
         messages.append({"role": "assistant", "content": content})
 

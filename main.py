@@ -28,7 +28,10 @@ def main() -> None:
     args = parser.parse_args()
 
     goal = " ".join(args.goal).strip() or DEFAULT_GOAL
-    print(run_react(goal, model=args.model, max_steps=args.max_steps))
+    try:
+        print(run_react(goal, model=args.model, max_steps=args.max_steps))
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 if __name__ == "__main__":
