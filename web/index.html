@@ -3,25 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ReAct Travel Agent — Live Demo & Inspector</title>
+  <title>ReAct Travel Agent Studio — Autonomous Travel Planner</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #090d16;
-      --card-bg: rgba(18, 26, 43, 0.75);
+      --bg: #070b14;
+      --bg-surface: #0e1526;
+      --card-bg: rgba(15, 23, 42, 0.75);
       --card-border: rgba(255, 255, 255, 0.08);
-      --card-hover: rgba(26, 38, 64, 0.85);
+      --card-hover: rgba(30, 41, 69, 0.85);
       --accent: #38bdf8;
+      --accent-hover: #0284c7;
       --accent-glow: rgba(56, 189, 248, 0.25);
+      --primary-gradient: linear-gradient(135deg, #0284c7, #38bdf8);
       --success: #34d399;
+      --success-glow: rgba(52, 211, 153, 0.2);
       --danger: #f87171;
+      --danger-glow: rgba(248, 113, 113, 0.25);
       --warning: #fbbf24;
-      --text: #f1f5f9;
+      --text: #f8fafc;
       --text-muted: #94a3b8;
-      --font-main: 'Outfit', sans-serif;
+      --text-dim: #64748b;
+      --input-bg: rgba(8, 14, 26, 0.85);
+      --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
       --font-code: 'JetBrains Mono', monospace;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
     }
 
     * {
@@ -31,39 +41,43 @@
     }
 
     body {
-      background: radial-gradient(circle at 15% 15%, #131c31 0%, #090d16 80%);
+      background: radial-gradient(circle at 10% 10%, #172554 0%, #070b14 60%, #030712 100%);
       color: var(--text);
       font-family: var(--font-main);
       min-height: 100vh;
-      padding: 24px;
+      padding: 20px 24px 40px;
       overflow-x: hidden;
+      line-height: 1.5;
     }
 
     .container {
-      max-width: 1280px;
+      max-width: 1440px;
       margin: 0 auto;
       display: grid;
-      grid-template-columns: 360px 1fr;
+      grid-template-columns: 460px 1fr;
       gap: 24px;
     }
 
-    @media (max-width: 960px) {
+    @media (max-width: 1080px) {
       .container {
         grid-template-columns: 1fr;
       }
     }
 
+    /* Header */
     header {
       grid-column: 1 / -1;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 20px 24px;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding: 18px 24px;
       background: var(--card-bg);
-      backdrop-filter: blur(16px);
+      backdrop-filter: blur(20px);
       border: 1px solid var(--card-border);
-      border-radius: 16px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
     }
 
     .logo-area {
@@ -73,22 +87,22 @@
     }
 
     .badge-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: var(--primary-gradient);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 22px;
-      box-shadow: 0 0 20px var(--accent-glow);
+      font-size: 24px;
+      box-shadow: 0 0 24px var(--accent-glow);
     }
 
     .header-titles h1 {
-      font-size: 20px;
+      font-size: 21px;
       font-weight: 700;
       letter-spacing: -0.02em;
-      background: linear-gradient(to right, #fff, #94a3b8);
+      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
@@ -98,19 +112,52 @@
       color: var(--text-muted);
     }
 
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .model-selector-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--card-border);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .model-selector-wrap select {
+      background: transparent;
+      border: none;
+      color: var(--accent);
+      font-family: var(--font-code);
+      font-size: 12px;
+      font-weight: 600;
+      outline: none;
+      cursor: pointer;
+    }
+
     .badge-tag {
       font-size: 11px;
       font-weight: 600;
-      padding: 6px 12px;
+      padding: 7px 14px;
       border-radius: 999px;
       background: rgba(56, 189, 248, 0.12);
       border: 1px solid rgba(56, 189, 248, 0.3);
       color: var(--accent);
       text-transform: uppercase;
       letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    /* Left panel: Controls & Profile */
+    /* Sidebar Layout */
     .sidebar {
       display: flex;
       flex-direction: column;
@@ -119,16 +166,17 @@
 
     .card {
       background: var(--card-bg);
-      backdrop-filter: blur(16px);
+      backdrop-filter: blur(20px);
       border: 1px solid var(--card-border);
-      border-radius: 16px;
+      border-radius: var(--radius-lg);
       padding: 20px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+      transition: border-color 0.2s;
     }
 
     .card-title {
-      font-size: 14px;
-      font-weight: 600;
+      font-size: 13px;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: var(--text-muted);
@@ -138,90 +186,176 @@
       justify-content: space-between;
     }
 
-    .profile-item {
+    /* Tabbed Builder Navigation */
+    .tabs-nav {
       display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-      font-size: 13px;
-    }
-    .profile-item:last-child {
-      border-bottom: none;
-    }
-    .profile-label {
-      color: var(--text-muted);
-    }
-    .profile-val {
-      font-weight: 600;
-      color: #fff;
-    }
-    .profile-val.highlight {
-      color: var(--success);
+      gap: 6px;
+      margin-bottom: 16px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 4px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(255, 255, 255, 0.04);
     }
 
-    .budget-meter-box {
-      margin-top: 14px;
-      padding: 12px;
-      border-radius: 10px;
-      background: rgba(0,0,0,0.3);
-      border: 1px solid rgba(255,255,255,0.04);
-    }
-    .meter-label {
-      display: flex;
-      justify-content: space-between;
+    .tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
       font-size: 12px;
-      margin-bottom: 6px;
+      font-weight: 600;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
     }
-    .meter-bar {
-      height: 8px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 999px;
-      overflow: hidden;
-      position: relative;
+
+    .tab-btn.active {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
-    .meter-fill {
-      height: 100%;
-      width: 0%;
-      background: var(--accent);
-      border-radius: 999px;
-      transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
     }
-    .meter-fill.safe {
-      background: linear-gradient(90deg, #10b981, #34d399);
-    }
-    .meter-fill.danger {
-      background: linear-gradient(90deg, #ef4444, #f87171);
+
+    .form-group {
+      margin-bottom: 12px;
     }
 
     label {
-      font-size: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
       color: var(--text-muted);
       margin-bottom: 6px;
       display: block;
     }
 
-    textarea, input {
+    input, textarea, select {
       width: 100%;
-      background: rgba(10, 15, 26, 0.8);
+      background: var(--input-bg);
       border: 1px solid var(--card-border);
-      border-radius: 10px;
-      padding: 12px;
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
       color: var(--text);
       font-family: inherit;
       font-size: 13px;
-      resize: vertical;
-      margin-bottom: 12px;
-      transition: border-color 0.2s;
-    }
-    textarea:focus, input:focus {
-      outline: none;
-      border-color: var(--accent);
+      transition: all 0.2s ease;
     }
 
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    /* Preset Buttons for Quick Budget Selection */
+    .chip-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+      margin-bottom: 12px;
+    }
+
+    .chip {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .chip:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text);
+    }
+
+    .chip.active {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Budget Observer Meter */
+    .budget-meter-box {
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: var(--radius-md);
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .meter-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .meter-header span:first-child {
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .meter-amount {
+      font-family: var(--font-code);
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .meter-bar {
+      height: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .meter-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      border-radius: 999px;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .meter-fill.safe {
+      background: linear-gradient(90deg, #10b981, #34d399);
+      box-shadow: 0 0 10px var(--success-glow);
+    }
+
+    .meter-fill.danger {
+      background: linear-gradient(90deg, #ef4444, #f87171);
+      box-shadow: 0 0 10px var(--danger-glow);
+    }
+
+    .meter-caption {
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Buttons */
     .btn-group {
       display: flex;
       flex-direction: column;
       gap: 10px;
+      margin-top: 14px;
     }
 
     button {
@@ -229,9 +363,9 @@
       font-family: inherit;
       font-weight: 600;
       border: none;
-      border-radius: 10px;
+      border-radius: var(--radius-sm);
       padding: 12px 18px;
-      font-size: 14px;
+      font-size: 13.5px;
       transition: all 0.2s ease;
       display: flex;
       align-items: center;
@@ -240,14 +374,17 @@
     }
 
     .btn-primary {
-      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      background: var(--primary-gradient);
       color: #04121e;
+      font-weight: 700;
       box-shadow: 0 4px 16px var(--accent-glow);
     }
-    .btn-primary:hover {
+
+    .btn-primary:hover:not(:disabled) {
       transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(56, 189, 248, 0.4);
+      box-shadow: 0 6px 22px rgba(56, 189, 248, 0.45);
     }
+
     .btn-primary:disabled {
       opacity: 0.6;
       cursor: not-allowed;
@@ -259,11 +396,24 @@
       color: var(--text);
       border: 1px solid var(--card-border);
     }
-    .btn-secondary:hover {
+
+    .btn-secondary:hover:not(:disabled) {
       background: rgba(255, 255, 255, 0.1);
     }
 
-    /* Main view: ReAct steps stream */
+    .btn-outline {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      font-size: 12px;
+      padding: 8px 12px;
+    }
+
+    .btn-outline:hover {
+      background: rgba(56, 189, 248, 0.1);
+    }
+
+    /* Main View: ReAct Stream */
     .main-view {
       display: flex;
       flex-direction: column;
@@ -274,26 +424,59 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 12px;
+      padding-bottom: 14px;
       border-bottom: 1px solid var(--card-border);
     }
 
-    .step-card {
-      background: var(--card-bg);
-      backdrop-filter: blur(16px);
-      border: 1px solid var(--card-border);
-      border-radius: 14px;
-      padding: 16px 20px;
-      margin-bottom: 14px;
-      animation: fadeIn 0.3s ease;
-      transition: border-color 0.2s;
-    }
-    .step-card:hover {
-      border-color: rgba(255,255,255,0.18);
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
     }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-dim);
+    }
+
+    .status-dot.active {
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent);
+      animation: pulse 1.5s infinite;
+    }
+
+    .status-dot.done {
+      background: var(--success);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Step Cards */
+    .step-card {
+      background: rgba(18, 28, 48, 0.6);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      margin-bottom: 14px;
+      animation: slideIn 0.3s ease-out;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .step-card:hover {
+      border-color: rgba(255, 255, 255, 0.16);
+      background: rgba(22, 34, 58, 0.7);
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
@@ -306,58 +489,62 @@
       font-weight: 600;
       padding: 3px 8px;
       border-radius: 6px;
-      background: rgba(255,255,255,0.06);
-      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--accent);
       margin-bottom: 10px;
     }
 
     .thought-box {
-      font-size: 14px;
+      font-size: 13.5px;
       color: #cbd5e1;
       margin-bottom: 12px;
-      line-height: 1.5;
+      line-height: 1.55;
     }
 
     .action-box {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 10px;
-      background: rgba(0,0,0,0.3);
-      padding: 8px 12px;
-      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
       font-family: var(--font-code);
       font-size: 12px;
       margin-bottom: 10px;
       border-left: 3px solid var(--accent);
     }
+
     .action-name {
       color: var(--accent);
       font-weight: 600;
+      white-space: nowrap;
     }
+
     .action-input {
       color: #e2e8f0;
       word-break: break-all;
     }
 
     .observation-box {
-      background: rgba(10, 15, 26, 0.95);
-      border: 1px solid rgba(255,255,255,0.05);
-      border-radius: 8px;
+      background: rgba(8, 13, 22, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: var(--radius-sm);
       padding: 12px;
       font-family: var(--font-code);
       font-size: 12px;
-      max-height: 220px;
+      max-height: 240px;
       overflow-y: auto;
       white-space: pre-wrap;
-      word-break: break-all;
+      word-break: break-word;
+      color: #94a3b8;
     }
 
     .tag-violation {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      margin-top: 8px;
-      padding: 4px 10px;
+      margin-top: 10px;
+      padding: 6px 12px;
       border-radius: 6px;
       background: rgba(239, 68, 68, 0.15);
       border: 1px solid rgba(239, 68, 68, 0.4);
@@ -365,12 +552,13 @@
       font-size: 12px;
       font-weight: 600;
     }
+
     .tag-ok {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      margin-top: 8px;
-      padding: 4px 10px;
+      margin-top: 10px;
+      padding: 6px 12px;
       border-radius: 6px;
       background: rgba(16, 185, 129, 0.15);
       border: 1px solid rgba(16, 185, 129, 0.4);
@@ -380,49 +568,100 @@
     }
 
     .final-answer-card {
-      background: linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, rgba(18, 26, 43, 0.9) 100%);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, rgba(18, 26, 43, 0.95) 100%);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      border-radius: var(--radius-lg);
       padding: 24px;
-      margin-top: 10px;
-      box-shadow: 0 12px 36px rgba(16, 185, 129, 0.1);
+      margin-top: 14px;
+      box-shadow: 0 16px 40px rgba(16, 185, 129, 0.12);
+      animation: slideIn 0.4s ease-out;
     }
+
     .final-answer-card h3 {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       color: var(--success);
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 14px;
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 16px;
     }
+
     .final-content {
       font-size: 14px;
-      line-height: 1.6;
+      line-height: 1.65;
       white-space: pre-wrap;
       font-family: inherit;
+      color: #f1f5f9;
     }
 
     .spinner {
-      width: 18px;
-      height: 18px;
-      border: 2px solid rgba(0,0,0,0.2);
-      border-top-color: #000;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-top-color: var(--accent);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
+      display: inline-block;
     }
+
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
 
     .empty-state {
       text-align: center;
-      padding: 60px 20px;
+      padding: 80px 20px;
       color: var(--text-muted);
     }
+
     .empty-state-icon {
-      font-size: 40px;
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
       margin-bottom: 12px;
+      font-size: 12.5px;
+    }
+
+    .summary-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .summary-item .label {
+      color: var(--text-muted);
+    }
+
+    .summary-item .val {
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--accent);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
@@ -433,54 +672,151 @@
       <div class="logo-area">
         <div class="badge-icon">✈️</div>
         <div class="header-titles">
-          <h1>Bare-Metal ReAct Travel Agent</h1>
-          <p>HackClub Buildathon Track 2 &bull; No Frameworks &bull; Programmatic $800 Guardrail</p>
+          <h1>ReAct Travel Agent Studio</h1>
+          <p>Bare-Metal Loop &bull; Real-time Tavily & AST Tools &bull; Programmatic Invariant Guardrail</p>
         </div>
       </div>
-      <div>
-        <span class="badge-tag">Invariant: Total spend &le; $800</span>
+      <div class="header-actions">
+        <div class="model-selector-wrap">
+          <span>Model:</span>
+          <select id="modelSelect">
+            <option value="openai/gpt-oss-120b" selected>GPT-OSS 120B (Recommended)</option>
+            <option value="openai/gpt-oss-20b">GPT-OSS 20B (Fast)</option>
+          </select>
+        </div>
+        <span class="badge-tag">
+          <span id="badgeHardCap">CAP: $800</span>
+        </span>
       </div>
     </header>
 
     <!-- Left Controls Panel -->
     <div class="sidebar">
+
+      <!-- Trip & Profile Customizer -->
       <div class="card">
-        <div class="card-title">Traveler Profile (travel_profile.json)</div>
-        <div class="profile-item">
-          <span class="profile-label">Traveler</span>
-          <span class="profile-val" id="profileName">Alex Rivera</span>
-        </div>
-        <div class="profile-item">
-          <span class="profile-label">Route</span>
-          <span class="profile-val" id="profileRoute">San Francisco &rarr; Lisbon</span>
-        </div>
-        <div class="profile-item">
-          <span class="profile-label">Dates</span>
-          <span class="profile-val" id="profileDates">Oct 12 &ndash; 17, 2026 (5 nights)</span>
-        </div>
-        <div class="profile-item">
-          <span class="profile-label">Hard Cap</span>
-          <span class="profile-val highlight" id="profileCap">$800.00 USD</span>
-        </div>
-        <div class="profile-item">
-          <span class="profile-label">Preferences</span>
-          <span class="profile-val" style="font-size: 11px;">Food, History, Viewpoints (No shellfish)</span>
+        <div class="card-title">
+          <span>Configure Trip & Profile</span>
+          <button class="btn-outline" id="btnSyncProfile" style="padding: 4px 8px;">💾 Save Profile</button>
         </div>
 
+        <div class="tabs-nav">
+          <button class="tab-btn active" data-tab="tab-traveler">👤 Traveler</button>
+          <button class="tab-btn" data-tab="tab-route">📍 Route & Dates</button>
+          <button class="tab-btn" data-tab="tab-budget">💰 Budget</button>
+          <button class="tab-btn" data-tab="tab-prefs">⭐ Preferences</button>
+        </div>
+
+        <!-- Tab 1: Traveler -->
+        <div class="tab-content" id="tab-traveler">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="inputTravelerName">Traveler Name</label>
+              <input type="text" id="inputTravelerName" value="Alex Rivera" placeholder="e.g. Alex Rivera" />
+            </div>
+            <div class="form-group">
+              <label for="inputPartySize">Party Size</label>
+              <input type="number" id="inputPartySize" value="1" min="1" max="10" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="inputOrigin">Departure Origin</label>
+            <input type="text" id="inputOrigin" value="San Francisco, CA" placeholder="e.g. San Francisco, CA" />
+          </div>
+        </div>
+
+        <!-- Tab 2: Route & Dates -->
+        <div class="tab-content" id="tab-route" style="display: none;">
+          <div class="form-group">
+            <label for="inputDestination">Destination City</label>
+            <input type="text" id="inputDestination" value="Lisbon, Portugal" placeholder="e.g. Lisbon, Portugal" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="inputStartDate">Start Date</label>
+              <input type="date" id="inputStartDate" value="2026-10-12" />
+            </div>
+            <div class="form-group">
+              <label for="inputEndDate">End Date</label>
+              <input type="date" id="inputEndDate" value="2026-10-17" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="inputNights">Nights Count</label>
+            <input type="number" id="inputNights" value="5" min="1" max="30" />
+          </div>
+        </div>
+
+        <!-- Tab 3: Budget -->
+        <div class="tab-content" id="tab-budget" style="display: none;">
+          <div class="form-group">
+            <label for="inputHardCap">Trip Hard Cap (USD $)</label>
+            <input type="number" id="inputHardCap" value="800" min="100" max="10000" step="50" />
+          </div>
+          <label>Quick Budget Presets</label>
+          <div class="chip-group" id="budgetPresets">
+            <span class="chip" data-val="500">$500 (Ultra Budget)</span>
+            <span class="chip active" data-val="800">$800 (Hackathon Cap)</span>
+            <span class="chip" data-val="1200">$1,200 (Standard)</span>
+            <span class="chip" data-val="1600">$1,600 (Comfort)</span>
+            <span class="chip" data-val="2500">$2,500 (Flexible)</span>
+          </div>
+        </div>
+
+        <!-- Tab 4: Preferences -->
+        <div class="tab-content" id="tab-prefs" style="display: none;">
+          <div class="form-group">
+            <label for="selectPace">Travel Pace</label>
+            <select id="selectPace">
+              <option value="walkable neighborhoods, one major outing per day" selected>Balanced (1 outing/day)</option>
+              <option value="relaxed, slow travel with coffee & viewpoints">Relaxed & Leisurely</option>
+              <option value="fast-paced, maximize sightseeing & landmarks">Packed & Active</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="selectLodging">Preferred Lodging</label>
+            <select id="selectLodging">
+              <option value="central guesthouse or 3-star hotel" selected>Central Guesthouse / 3-Star</option>
+              <option value="hostels or budget dorms">Hostels / Budget Dorms</option>
+              <option value="boutique hotels or cozy Airbnb">Boutique Hotel / Airbnb</option>
+            </select>
+          </div>
+          <label>Interests</label>
+          <div class="chip-group" id="interestChips">
+            <span class="chip active" data-interest="food">Food</span>
+            <span class="chip active" data-interest="history">History</span>
+            <span class="chip active" data-interest="viewpoints">Viewpoints</span>
+            <span class="chip" data-interest="museums">Museums</span>
+            <span class="chip" data-interest="nature">Nature</span>
+            <span class="chip" data-interest="architecture">Architecture</span>
+            <span class="chip" data-interest="nightlife">Nightlife</span>
+          </div>
+          <div class="form-group">
+            <label for="inputDietary">Dietary & Restrictions</label>
+            <input type="text" id="inputDietary" value="no shellfish" placeholder="e.g. no shellfish, vegetarian" />
+          </div>
+        </div>
+
+        <!-- Active Trip Summary Review -->
         <div class="budget-meter-box">
-          <div class="meter-label">
+          <div class="meter-header">
             <span>Budget Observer Status</span>
-            <span id="meterText">$0 / $800</span>
+            <span class="meter-amount" id="meterText">$0 / $800</span>
           </div>
           <div class="meter-bar">
             <div class="meter-fill" id="meterFill"></div>
           </div>
+          <div class="meter-caption">
+            <span id="routeSummaryLabel">SFO &rarr; Lisbon &bull; 5 nights</span>
+            <span id="budgetInvariantNotice">Cap: $800.00</span>
+          </div>
         </div>
       </div>
 
+      <!-- Execution Panel -->
       <div class="card">
-        <div class="card-title">Run Simulation / Live Agent</div>
-        <label for="goalInput">Planning Goal</label>
+        <div class="card-title">Execution Controls</div>
+        <label for="goalInput">Autonomous Agent Goal</label>
         <textarea id="goalInput" rows="3">Read travel_profile.json, research realistic 2026 prices with Tavily, add costs with calculate, and produce an itinerary whose Total is <= $800.</textarea>
 
         <div class="btn-group">
@@ -491,24 +827,29 @@
             <span>⚡ Instant Demo Replay</span>
           </button>
           <button class="btn-secondary" id="btnTriggerViolation">
-            <span>⚠️ Test $800 Budget Intercept</span>
+            <span>⚠️ Test Budget Guardrail Intercept</span>
           </button>
         </div>
       </div>
+
     </div>
 
     <!-- Right Live Feed Panel -->
     <div class="main-view">
-      <div class="card" style="min-height: 540px;">
+      <div class="card" style="min-height: 600px;">
         <div class="feed-header">
           <div class="card-title" style="margin-bottom: 0;">ReAct Reasoning & Execution Stream</div>
-          <span id="stepCounter" style="font-size: 12px; color: var(--text-muted);">Ready to start</span>
+          <div class="status-indicator">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="stepCounter">Ready to start</span>
+          </div>
         </div>
 
         <div id="stepsContainer" style="margin-top: 16px;">
           <div class="empty-state">
             <div class="empty-state-icon">🧭</div>
-            <p>Click <strong>Run Live Agent</strong> or <strong>Instant Demo Replay</strong> to observe the bare-metal ReAct loop in action.</p>
+            <p>Click <strong>Run Live Agent</strong> to observe the bare-metal ReAct loop executing live in real time.</p>
+            <p style="font-size: 12px; margin-top: 6px; color: var(--text-dim);">Custom budget, traveler details, route, and preferences are automatically transmitted to the agent.</p>
           </div>
         </div>
 
@@ -517,19 +858,92 @@
     </div>
   </div>
 
+  <div id="toast" class="toast" style="display: none;"></div>
+
   <script>
+    // State & Elements
+    let currentProfile = {};
+    let currentHardCap = 800;
+
     const stepsContainer = document.getElementById('stepsContainer');
     const finalContainer = document.getElementById('finalContainer');
     const stepCounter = document.getElementById('stepCounter');
+    const statusDot = document.getElementById('statusDot');
     const meterFill = document.getElementById('meterFill');
     const meterText = document.getElementById('meterText');
+    const routeSummaryLabel = document.getElementById('routeSummaryLabel');
+    const budgetInvariantNotice = document.getElementById('budgetInvariantNotice');
+    const badgeHardCap = document.getElementById('badgeHardCap');
+    const modelSelect = document.getElementById('modelSelect');
+
     const btnRunLive = document.getElementById('btnRunLive');
     const btnReplayTrace = document.getElementById('btnReplayTrace');
     const btnTriggerViolation = document.getElementById('btnTriggerViolation');
+    const btnSyncProfile = document.getElementById('btnSyncProfile');
     const goalInput = document.getElementById('goalInput');
 
+    // Inputs
+    const inputTravelerName = document.getElementById('inputTravelerName');
+    const inputPartySize = document.getElementById('inputPartySize');
+    const inputOrigin = document.getElementById('inputOrigin');
+    const inputDestination = document.getElementById('inputDestination');
+    const inputStartDate = document.getElementById('inputStartDate');
+    const inputEndDate = document.getElementById('inputEndDate');
+    const inputNights = document.getElementById('inputNights');
+    const inputHardCap = document.getElementById('inputHardCap');
+    const selectPace = document.getElementById('selectPace');
+    const selectLodging = document.getElementById('selectLodging');
+    const inputDietary = document.getElementById('inputDietary');
+
+    // Tab switcher
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+        btn.classList.add('active');
+        const targetId = btn.getAttribute('data-tab');
+        document.getElementById(targetId).style.display = 'block';
+      });
+    });
+
+    // Budget Preset Chips
+    document.querySelectorAll('#budgetPresets .chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('#budgetPresets .chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        const val = parseFloat(chip.getAttribute('data-val'));
+        inputHardCap.value = val;
+        onBudgetChange(val);
+      });
+    });
+
+    // Interest Chips
+    document.querySelectorAll('#interestChips .chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        chip.classList.toggle('active');
+        updateAutoGoal();
+      });
+    });
+
+    inputHardCap.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value) || 800;
+      onBudgetChange(val);
+    });
+
+    [inputTravelerName, inputOrigin, inputDestination, inputNights, inputDietary].forEach(el => {
+      el.addEventListener('input', updateAutoGoal);
+    });
+
+    function onBudgetChange(cap) {
+      currentHardCap = cap;
+      badgeHardCap.textContent = `CAP: $${cap.toFixed(0)}`;
+      budgetInvariantNotice.textContent = `Cap: $${cap.toFixed(2)}`;
+      updateBudgetMeter(0);
+      updateAutoGoal();
+    }
+
     function updateBudgetMeter(amount) {
-      const cap = 800;
+      const cap = currentHardCap || 800;
       const pct = Math.min(100, Math.max(0, (amount / cap) * 100));
       meterFill.style.width = pct + '%';
       meterText.textContent = `$${amount.toFixed(2)} / $${cap.toFixed(2)}`;
@@ -540,6 +954,120 @@
         meterFill.className = 'meter-fill safe';
       }
     }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    function updateAutoGoal() {
+      const name = inputTravelerName.value.trim() || 'the traveler';
+      const origin = inputOrigin.value.trim() || 'origin';
+      const dest = inputDestination.value.trim() || 'destination';
+      const nights = inputNights.value.trim() || '5';
+      const cap = parseFloat(inputHardCap.value) || 800;
+
+      routeSummaryLabel.textContent = `${origin} → ${dest} • ${nights} nights`;
+      goalInput.value = `Read travel_profile.json, research realistic 2026 prices for ${name} traveling from ${origin} to ${dest} (${nights} nights) with Tavily, add costs with calculate, and produce an itinerary whose Total is <= $${cap.toFixed(0)}.`;
+    }
+
+    function getFormProfile() {
+      const selectedInterests = Array.from(document.querySelectorAll('#interestChips .chip.active'))
+        .map(c => c.getAttribute('data-interest'));
+      const diet = inputDietary.value.split(',').map(s => s.trim()).filter(Boolean);
+
+      return {
+        traveler: {
+          name: inputTravelerName.value.trim(),
+          origin: inputOrigin.value.trim(),
+          party_size: parseInt(inputPartySize.value) || 1
+        },
+        trip: {
+          destination: inputDestination.value.trim(),
+          start_date: inputStartDate.value,
+          end_date: inputEndDate.value,
+          nights: parseInt(inputNights.value) || 5
+        },
+        budget: {
+          currency: "USD",
+          hard_cap: parseFloat(inputHardCap.value) || 800,
+          rule: `Total spend must be less than or equal to $${parseFloat(inputHardCap.value) || 800}`
+        },
+        preferences: {
+          pace: selectPace.value,
+          lodging: selectLodging.value,
+          interests: selectedInterests,
+          dietary: diet,
+          avoid: ["all-inclusive resorts", "overnight buses"]
+        }
+      };
+    }
+
+    async function loadProfile() {
+      try {
+        const res = await fetch('/api/profile');
+        if (!res.ok) return;
+        const p = await res.json();
+        currentProfile = p;
+
+        if (p.traveler) {
+          inputTravelerName.value = p.traveler.name || 'Alex Rivera';
+          inputPartySize.value = p.traveler.party_size || 1;
+          inputOrigin.value = p.traveler.origin || 'San Francisco, CA';
+        }
+        if (p.trip) {
+          inputDestination.value = p.trip.destination || 'Lisbon, Portugal';
+          inputStartDate.value = p.trip.start_date || '2026-10-12';
+          inputEndDate.value = p.trip.end_date || '2026-10-17';
+          inputNights.value = p.trip.nights || 5;
+        }
+        if (p.budget) {
+          const cap = parseFloat(p.budget.hard_cap) || 800;
+          inputHardCap.value = cap;
+          onBudgetChange(cap);
+        }
+        if (p.preferences) {
+          if (p.preferences.pace) selectPace.value = p.preferences.pace;
+          if (p.preferences.lodging) selectLodging.value = p.preferences.lodging;
+          if (p.preferences.dietary) inputDietary.value = p.preferences.dietary.join(', ');
+
+          const interests = p.preferences.interests || [];
+          document.querySelectorAll('#interestChips .chip').forEach(c => {
+            const val = c.getAttribute('data-interest');
+            if (interests.includes(val)) c.classList.add('active');
+            else c.classList.remove('active');
+          });
+        }
+
+        updateAutoGoal();
+      } catch (err) {
+        console.warn('Could not load profile:', err);
+      }
+    }
+
+    async function saveProfile() {
+      const profile = getFormProfile();
+      try {
+        const res = await fetch('/api/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(profile)
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          showToast('✓ Profile saved to travel_profile.json');
+          updateAutoGoal();
+        } else {
+          alert('Error saving profile: ' + data.error);
+        }
+      } catch (err) {
+        alert('Network error saving profile: ' + err.message);
+      }
+    }
+
+    btnSyncProfile.addEventListener('click', saveProfile);
 
     function clearFeed() {
       stepsContainer.innerHTML = '';
@@ -564,9 +1092,9 @@
 
       let badgeHtml = '';
       if (isViolation) {
-        badgeHtml = `<div class="tag-violation">⛔ BUDGET OBSERVER INTERCEPT: Exceeded $800 Hard Cap</div>`;
+        badgeHtml = `<div class="tag-violation">⛔ BUDGET OBSERVER INTERCEPT: Exceeded $${currentHardCap.toFixed(2)} Hard Cap</div>`;
       } else if (isOk) {
-        badgeHtml = `<div class="tag-ok">✅ BUDGET OBSERVER: Approved (&le; $800.00)</div>`;
+        badgeHtml = `<div class="tag-ok">✅ BUDGET OBSERVER: Approved (&le; $${currentHardCap.toFixed(2)})</div>`;
       }
 
       card.innerHTML = `
@@ -603,188 +1131,100 @@
         .replace(/'/g, "&#039;");
     }
 
-    // Interactive Demo Replay showcasing the exact verified run with budget violation interception
-    const demoSteps = [
-      {
-        step: 1,
-        thought: "I need to start by reading travel_profile.json to understand Alex Rivera's preferences, dates, and budget.",
-        action: "read_file",
-        actionInput: "travel_profile.json",
-        observation: '{\n  "traveler": { "name": "Alex Rivera", "origin": "San Francisco, CA" },\n  "trip": { "destination": "Lisbon, Portugal", "start_date": "2026-10-12", "nights": 5 },\n  "budget": { "hard_cap": 800 }\n}',
-        amount: 0
-      },
-      {
-        step: 2,
-        thought: "I will query Tavily for current 2026 round-trip flights from San Francisco (SFO) to Lisbon (LIS).",
-        action: "search",
-        actionInput: "San Francisco to Lisbon round trip flight price October 2026 budget",
-        observation: '[\n  { "title": "$478 Cheap Flights from SFO to Lisbon 2026 | momondo", "snippet": "Best round-trip flight deal found is $693 - $700 on major carriers..." },\n  { "title": "TAP Air Portugal SFO - LIS", "snippet": "Economy round trip flights average $475 - $554 booked in advance." }\n]',
-        amount: 0
-      },
-      {
-        step: 3,
-        thought: "Next, I need to check lodging rates for central guesthouses or 3-star hotels in Lisbon for 5 nights.",
-        action: "search",
-        actionInput: "Lisbon central guesthouse 3-star hotel price per night October 2026 budget",
-        observation: '[\n  { "title": "Trip to Lisbon Cost 2026", "snippet": "Budget hostels and guesthouses run $30 - $45 per night. 3-star hotels average $105/night." }\n]',
-        amount: 0
-      },
-      {
-        step: 4,
-        thought: "Now let's compute preliminary total for high-end options: Flights ($679) + Guesthouse ($35*5) + Food ($35*5) + Lisboa Card ($55) + Sintra ($40).",
-        action: "calculate",
-        actionInput: "679 + 35*5 + 35*5 + 55 + 40",
-        observation: "1124\n[BUDGET VIOLATION] calculate(679 + 35*5 + 35*5 + 55 + 40) = 1124.00 exceeds hard cap of $800.00. Revise the plan to stay at or under $800.00.",
-        isViolation: true,
-        amount: 1124
-      },
-      {
-        step: 5,
-        thought: "The total $1,124 exceeds our $800 budget. The flight alone is $679. I must search for cheaper flights.",
-        action: "search",
-        actionInput: "cheapest flight San Francisco to Lisbon October 2026 under $500",
-        observation: '[\n  { "title": "TAP AIR PORTUGAL Flights to Lisbon", "snippet": "Cheapest month for TAP Air Portugal is October where tickets average $475." }\n]',
-        amount: 1124
-      },
-      {
-        step: 6,
-        thought: "With TAP Air Portugal at $475, I will test a tighter budget: Flight ($475) + Hostel ($30*5) + Food ($25*5) + Lisboa Card ($55).",
-        action: "calculate",
-        actionInput: "475 + 30*5 + 25*5 + 55",
-        observation: "805\n[BUDGET VIOLATION] calculate(475 + 30*5 + 25*5 + 55) = 805.00 exceeds hard cap of $800.00. Revise the plan to stay at or under $800.00.",
-        isViolation: true,
-        amount: 805
-      },
-      {
-        step: 7,
-        thought: "$805 is just $5 over cap. I will trim food by $1/day ($24*5). Recalculating: 475 + 30*5 + 24*5 + 55.",
-        action: "calculate",
-        actionInput: "475 + 30*5 + 24*5 + 55",
-        observation: "800\n[BUDGET OK] 800.00 is within the $800.00 cap.",
-        isOk: true,
-        amount: 800
-      },
-      {
-        step: 8,
-        thought: "The calculated total is exactly $800.00, satisfying our hard cap invariant. I will now finalize the complete 5-night itinerary.",
-        final: `Lisbon 5-Night Itinerary (Oct 12 - 17, 2026) for Alex Rivera
-
-Day 1: Arrival, check in at central hostel (~$30/night), sunset walk at Miradouro de Santa Luzia.
-Day 2: Belém Tower and Jerónimos Monastery (included with 48h Lisboa Card), Pastéis de Belém.
-Day 3: Castelo de São Jorge, explore Alfama and Baixa historic quarters.
-Day 4: Day trip to Sintra (train included in Lisboa Card), old town walking tour.
-Day 5: Viewpoints at Miradouro da Graça, LX Factory creative hub, traditional dinner.
-Day 6: Morning check-out, metro to airport.
-
-Line-Item Budget Breakdown:
-• Round-trip Flight (TAP Air Portugal, SFO-LIS): $475.00
-• Central Hostel (5 nights × $30): $150.00
-• Food (5 days × $24/day, no shellfish): $120.00
-• Lisboa Card 48-Hour (Transit + 50+ Attractions): $55.00
-─────────────────────────────────────────────
-Total: $800.00
-
-[BUDGET OBSERVER - APPROVED]
-Total budget verification: Reported total $800.00 is <= $800.00. (Hard Cap: $800.00)`
-      }
-    ];
-
-    async function replayDemo() {
-      clearFeed();
-      btnReplayTrace.disabled = true;
-      btnRunLive.disabled = true;
-      btnTriggerViolation.disabled = true;
-
-      for (let i = 0; i < demoSteps.length; i++) {
-        const item = demoSteps[i];
-        stepCounter.textContent = `Playing Step ${item.step} of ${demoSteps.length}...`;
-        if (item.amount) updateBudgetMeter(item.amount);
-
-        if (item.final) {
-          showFinalAnswer(item.final, true);
-        } else {
-          addStepCard(item.step, item.thought, item.action, item.actionInput, item.observation, item.isViolation, item.isOk);
-        }
-        await new Promise(r => setTimeout(r, 900));
-      }
-
-      stepCounter.textContent = "Demo complete (8 steps & 2 budget intercepts verified)";
-      btnReplayTrace.disabled = false;
-      btnRunLive.disabled = false;
-      btnTriggerViolation.disabled = false;
-    }
-
-    async function testBudgetViolation() {
-      clearFeed();
-      stepCounter.textContent = "Demonstrating Programmatic Budget Observer Intercept...";
-      updateBudgetMeter(1180);
-
-      addStepCard(
-        1,
-        "User requested a luxury 5-star hotel ($350/night for 5 nights) plus $500 flights.",
-        "calculate",
-        "500 + 350*5",
-        "2250\n[BUDGET VIOLATION] calculate(500 + 350*5) = 2250.00 exceeds hard cap of $800.00. Revise the plan to stay at or under $800.00.",
-        true,
-        false
-      );
-
-      await new Promise(r => setTimeout(r, 600));
-
-      addStepCard(
-        2,
-        "The budget observer intercepted the calculation and blocked the plan! The agent must revise.",
-        null,
-        null,
-        null,
-        false,
-        false
-      );
-
-      showFinalAnswer(
-        "Proposal Rejected by Programmatic Guardrail:\n\n[BUDGET OBSERVER - REJECTED]\nViolation: Reported total $2250.00 exceeds hard cap of $800.00.\nTrip hard cap is $800.00.",
-        false
-      );
-    }
-
+    // Run Live Agent with Real-Time Server-Sent Events (SSE)
     async function runLiveAgent() {
+      // First auto-save current form settings to travel_profile.json
+      const profile = getFormProfile();
+      await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profile)
+      });
+
       clearFeed();
       btnRunLive.disabled = true;
       btnReplayTrace.disabled = true;
       btnTriggerViolation.disabled = true;
-      stepCounter.innerHTML = `<span class="spinner"></span> Running Live ReAct Agent...`;
+
+      statusDot.className = 'status-dot active';
+      stepCounter.innerHTML = `<span class="spinner"></span> Live ReAct Agent Running...`;
+
+      const requestPayload = {
+        goal: goalInput.value.trim(),
+        hard_cap: currentHardCap,
+        model: modelSelect.value,
+        profile: profile
+      };
 
       try {
-        const res = await fetch('/api/run', {
+        // Use fetch with ReadableStream for SSE streaming over POST
+        const res = await fetch('/api/run/stream', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ goal: goalInput.value.trim() })
+          body: JSON.stringify(requestPayload)
         });
-        const data = await res.json();
 
-        if (data.error) {
-          throw new Error(data.error);
+        if (!res.ok) {
+          throw new Error(`Server returned HTTP ${res.status}`);
         }
 
-        // Render steps
-        if (data.steps && data.steps.length > 0) {
-          data.steps.forEach(s => {
-            const isVio = (s.observation || '').includes('[BUDGET VIOLATION]');
-            const isOk = (s.observation || '').includes('[BUDGET OK]');
-            addStepCard(s.step, s.thought, s.action, s.action_input, s.observation, isVio, isOk);
-          });
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n\n');
+          buffer = lines.pop(); // keep remainder
+
+          for (const chunk of lines) {
+            const line = chunk.trim();
+            if (!line.startsWith('data:')) continue;
+
+            const jsonStr = line.substring(5).trim();
+            if (!jsonStr) continue;
+
+            try {
+              const event = JSON.parse(jsonStr);
+
+              if (event.type === 'start') {
+                stepCounter.innerHTML = `<span class="spinner"></span> Initializing plan with ${escapeHtml(event.model)}...`;
+              } else if (event.type === 'step') {
+                stepCounter.innerHTML = `<span class="spinner"></span> Step ${event.step} executed...`;
+
+                const obs = event.observation || '';
+                const isVio = obs.includes('[BUDGET VIOLATION]');
+                const isOk = obs.includes('[BUDGET OK]');
+
+                // Update budget meter if a calculation or observation has dollar amount
+                const calcMatch = obs.match(/\b([0-9]+(?:\.[0-9]+)?)\b/);
+                if (calcMatch && (isVio || isOk)) {
+                  updateBudgetMeter(parseFloat(calcMatch[1]));
+                }
+
+                addStepCard(event.step, event.thought, event.action, event.action_input, obs, isVio, isOk);
+              } else if (event.type === 'final') {
+                const approved = event.final_answer.includes('[BUDGET OBSERVER - APPROVED]');
+                showFinalAnswer(event.final_answer, approved);
+                statusDot.className = 'status-dot done';
+                stepCounter.textContent = approved ? '✓ Execution Completed & Approved' : '⚠️ Execution Completed (Flagged)';
+                if (approved) updateBudgetMeter(currentHardCap);
+              } else if (event.type === 'error') {
+                throw new Error(event.error);
+              }
+            } catch (parseErr) {
+              console.warn('Error parsing SSE event:', parseErr, jsonStr);
+            }
+          }
         }
 
-        if (data.final_answer) {
-          const approved = data.final_answer.includes('[BUDGET OBSERVER - APPROVED]');
-          showFinalAnswer(data.final_answer, approved);
-          updateBudgetMeter(approved ? 800 : 950);
-        }
-
-        stepCounter.textContent = `Completed in ${data.steps ? data.steps.length : 0} steps`;
       } catch (err) {
-        stepCounter.textContent = "Error executing agent";
-        alert("Live agent error: " + err.message);
+        statusDot.className = 'status-dot';
+        stepCounter.textContent = 'Error executing live agent';
+        alert('Live Agent Error: ' + err.message);
       } finally {
         btnRunLive.disabled = false;
         btnReplayTrace.disabled = false;
@@ -792,12 +1232,133 @@ Total budget verification: Reported total $800.00 is <= $800.00. (Hard Cap: $800
       }
     }
 
+    // Demo Replay
+    async function replayDemo() {
+      clearFeed();
+      btnReplayTrace.disabled = true;
+      btnRunLive.disabled = true;
+      btnTriggerViolation.disabled = true;
+      statusDot.className = 'status-dot active';
+
+      const demoSteps = [
+        {
+          step: 1,
+          thought: `I will read travel_profile.json to extract traveler ${inputTravelerName.value}'s route and $${currentHardCap} budget cap.`,
+          action: "read_file",
+          actionInput: "travel_profile.json",
+          observation: JSON.stringify(getFormProfile(), null, 2),
+          amount: 0
+        },
+        {
+          step: 2,
+          thought: `Querying Tavily for round-trip flights from ${inputOrigin.value} to ${inputDestination.value}.`,
+          action: "search",
+          actionInput: `${inputOrigin.value} to ${inputDestination.value} round trip flight price October 2026 budget`,
+          observation: '[\n  { "title": "TAP Air Portugal SFO - LIS Deals 2026", "snippet": "Round trip flights average $475 - $520 booked in advance." }\n]',
+          amount: 0
+        },
+        {
+          step: 3,
+          thought: `Searching for central budget lodging in ${inputDestination.value} for ${inputNights.value} nights.`,
+          action: "search",
+          actionInput: `${inputDestination.value} central guesthouse price October 2026`,
+          observation: '[\n  { "title": "Lisbon Budget Guesthouses & Hostels", "snippet": "Average central guesthouse rate is $30 - $40 per night." }\n]',
+          amount: 0
+        },
+        {
+          step: 4,
+          thought: `Testing initial higher-end estimate: Flights ($520) + Lodging ($45*5 = $225) + Dining ($40*5 = $200) + Transit ($60).`,
+          action: "calculate",
+          actionInput: `520 + 45*5 + 40*5 + 60`,
+          observation: `1005\n[BUDGET VIOLATION] calculate(520 + 45*5 + 40*5 + 60) = 1005.00 exceeds hard cap of $${currentHardCap.toFixed(2)}. Revise the plan to stay at or under $${currentHardCap.toFixed(2)}.`,
+          isViolation: true,
+          amount: 1005
+        },
+        {
+          step: 5,
+          thought: `Total of $1005 exceeded our $${currentHardCap} limit. Optimizing with cheaper flights ($475) and guesthouse ($30*5) and daily food ($25*5).`,
+          action: "calculate",
+          actionInput: `475 + 30*5 + 25*5 + 50`,
+          observation: `800\n[BUDGET OK] 800.00 is within the $${currentHardCap.toFixed(2)} cap.`,
+          isOk: true,
+          amount: 800
+        },
+        {
+          step: 6,
+          thought: `The sum strictly adheres to the $${currentHardCap} invariant. Formulating finalized itinerary.`,
+          final: `${inputDestination.value} ${inputNights.value}-Night Verified Itinerary for ${inputTravelerName.value}
+
+Line-Item Cost Breakdown:
+• Round-trip Flights: $475.00
+• Central Lodging (${inputNights.value} nights × $30): $150.00
+• Meals & Dining (${inputNights.value} days × $25): $125.00
+• City Transit & Sightseeing Pass: $50.00
+─────────────────────────────────────────────
+Total: $800.00
+
+[BUDGET OBSERVER - APPROVED]
+Total budget verification: Reported total $800.00 is <= $${currentHardCap.toFixed(2)}. (Hard Cap: $${currentHardCap.toFixed(2)})`
+        }
+      ];
+
+      for (let i = 0; i < demoSteps.length; i++) {
+        const item = demoSteps[i];
+        stepCounter.textContent = `Demo Step ${item.step} of ${demoSteps.length}...`;
+        if (item.amount) updateBudgetMeter(item.amount);
+
+        if (item.final) {
+          showFinalAnswer(item.final, true);
+        } else {
+          addStepCard(item.step, item.thought, item.action, item.actionInput, item.observation, item.isViolation, item.isOk);
+        }
+        await new Promise(r => setTimeout(r, 700));
+      }
+
+      statusDot.className = 'status-dot done';
+      stepCounter.textContent = 'Demo complete (Budget verified)';
+      btnReplayTrace.disabled = false;
+      btnRunLive.disabled = false;
+      btnTriggerViolation.disabled = false;
+    }
+
+    // Test Budget Guardrail Intercept
+    async function testBudgetViolation() {
+      clearFeed();
+      statusDot.className = 'status-dot active';
+      stepCounter.textContent = `Demonstrating Programmatic Budget Guardrail (Cap: $${currentHardCap})...`;
+      updateBudgetMeter(currentHardCap + 450);
+
+      addStepCard(
+        1,
+        `User requested a luxury 5-star hotel ($350/night) + $600 private flights.`,
+        "calculate",
+        `600 + 350*${inputNights.value}`,
+        `${600 + 350 * parseInt(inputNights.value)}\n[BUDGET VIOLATION] calculate(600 + 350*${inputNights.value}) = ${600 + 350 * parseInt(inputNights.value)}.00 exceeds hard cap of $${currentHardCap.toFixed(2)}. Revise the plan to stay at or under $${currentHardCap.toFixed(2)}.`,
+        true,
+        false
+      );
+
+      await new Promise(r => setTimeout(r, 600));
+
+      showFinalAnswer(
+        `Proposal Intercepted by Programmatic Invariant Guardrail:
+
+[BUDGET OBSERVER - REJECTED]
+Violation: Reported total $${600 + 350 * parseInt(inputNights.value)}.00 exceeds hard cap of $${currentHardCap.toFixed(2)}.
+Trip hard cap is $${currentHardCap.toFixed(2)}.`,
+        false
+      );
+
+      statusDot.className = 'status-dot';
+      stepCounter.textContent = 'Invariant Violation Intercepted';
+    }
+
     btnReplayTrace.addEventListener('click', replayDemo);
     btnTriggerViolation.addEventListener('click', testBudgetViolation);
     btnRunLive.addEventListener('click', runLiveAgent);
 
-    // Initial default state
-    updateBudgetMeter(0);
+    // Initial Load
+    loadProfile();
   </script>
 </body>
 </html>

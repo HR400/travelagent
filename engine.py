@@ -20,29 +20,38 @@ logger = get_logger(__name__)
 HARD_CAP = 800.0
 DEFAULT_MAX_STEPS = 15
 
-SYSTEM_PROMPT = """You are a travel planner that uses a strict ReAct loop.
+def get_system_prompt(hard_cap: float = HARD_CAP) -> str:
+    return f"""You are a travel planner that uses a strict ReAct (Reason + Act) loop.
 
-Hard constraint: the total trip cost MUST be <= $800.00.
+Hard constraint: the total trip cost MUST be <= ${hard_cap:.2f}.
 Validate all totals using the calculate tool before finalizing.
-Do not propose a plan whose summed costs exceed $800.
+Do not propose a plan whose summed costs exceed ${hard_cap:.2f}.
 
 You may use these tools:
-{tool_list}
+{{tool_list}}
 
-Respond using EXACTLY this format (one single action per turn):
+CRITICAL RULE: Every response MUST be one of these two formats — never output ONLY a Thought.
 
+FORMAT A — When you need to use a tool (use this for every step until you have all data):
 Thought: <brief reasoning about what to do next>
 Action: <tool name>
 Action Input: <tool input>
 
-Wait for the real Observation after each Action. Do not make up fake observations or simulate future steps.
-Efficiency tip: after 2-3 initial searches for baseline rates, run calculate to test your budget breakdown. If intercepted by the budget observer, adjust line items and recalculate.
-
-When you have gathered all details and verified with calculate that the total is <= $800, respond:
-
+FORMAT B — ONLY when you have researched prices AND verified the total with calculate:
 Thought: <brief reasoning summarizing the finalized plan>
 Final Answer: <the full itinerary with daily activities, line-item budget, and a Total: $N.NN line>
+
+RULES:
+- Always output BOTH Thought AND Action (or Final Answer) — never Thought alone.
+- One action per turn. Wait for the real Observation.
+- After 2-3 searches, run calculate to verify your budget before giving a Final Answer.
+- If intercepted by the budget observer, adjust and recalculate.
+- Your Final Answer total MUST be <= ${hard_cap:.2f}.
 """
+
+
+SYSTEM_PROMPT = get_system_prompt(HARD_CAP)
+
 
 
 @dataclass
@@ -239,7 +248,7 @@ def retry_with_backoff(
     initial_delay: float = 1.0,
     exceptions: tuple[type[Exception], ...] = (RateLimitError, APIError),
 ):
-    """Decorator for retrying API calls with exponential backoff."""
+    """Decorator for retrying API calls with exponential backoff and dynamic rate-limit wait."""
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
@@ -255,14 +264,24 @@ def retry_with_backoff(
                     if attempt == max_retries:
                         break
 
+                    wait_time = delay
+                    # If error tells us to wait X seconds (e.g. Groq TPM window reset), honor it
+                    match = re.search(r"try again in ([0-9]+(?:\.[0-9]+)?)\s*s", str(exc), re.IGNORECASE)
+                    if match:
+                        wait_time = max(float(match.group(1)) + 1.0, delay)
+
                     logger.warning(
                         f"API call failed (attempt {attempt + 1}/{max_retries + 1}): {exc}. "
-                        f"Retrying in {delay:.1f}s..."
+                        f"Retrying in {wait_time:.1f}s..."
                     )
-                    time.sleep(delay)
+                    time.sleep(wait_time)
                     delay *= backoff_factor
 
             raise RuntimeError(f"API call failed after {max_retries + 1} attempts: {last_exception}") from last_exception
+
+        return wrapper
+
+    return decorator
 
         return wrapper
 
@@ -321,11 +340,11 @@ def get_client_and_model(
     elif config.openai_model:
         env_model = config.openai_model
         if base_url and "groq.com" in base_url and env_model in ("gpt-4o-mini", "gpt-4o"):
-            model = "qwen/qwen3.8-27b"
+            model = "openai/gpt-oss-120b"
         else:
             model = env_model
     elif base_url and "groq.com" in base_url:
-        model = "qwen/qwen3.8-27b"
+        model = "openai/gpt-oss-120b"
     else:
         model = "gpt-4o-mini"
 
@@ -348,6 +367,7 @@ def run_react(
     *,
     model: str | None = None,
     max_steps: int = DEFAULT_MAX_STEPS,
+    hard_cap: float | None = None,
     on_step: Callable[[int, str, str | None, str | None, str | None], None] | None = None,
     config: Config | None = None,
 ) -> str:
@@ -357,6 +377,7 @@ def run_react(
         user_goal: The travel planning goal to accomplish
         model: Optional model name override
         max_steps: Maximum number of ReAct steps allowed
+        hard_cap: Optional custom budget hard cap (overrides config if provided)
         on_step: Optional callback for step progress reporting
         config: Optional configuration instance (uses global config if not provided)
 
@@ -369,55 +390,80 @@ def run_react(
     if config is None:
         config = get_config()
 
+    effective_hard_cap = float(hard_cap) if hard_cap is not None else config.hard_cap
     logger.info(f"Starting ReAct loop with goal: {user_goal[:100]}...")
-    logger.info(f"Configuration: max_steps={config.max_steps}, hard_cap=${config.hard_cap:.2f}")
+    logger.info(f"Configuration: max_steps={max_steps}, hard_cap=${effective_hard_cap:.2f}")
 
     client, resolved_model = get_client_and_model(model, config)
-    observer = BudgetObserver(hard_cap=config.hard_cap)
+    observer = BudgetObserver(hard_cap=effective_hard_cap)
+
+    # Automatic model fallback cascade (especially helpful for Groq tiers)
+    is_groq = client.base_url and "groq.com" in str(client.base_url)
+    # Only use models known to be available (qwen is excluded: daily TPD limit hits fast)
+    fallback_models = ["openai/gpt-oss-120b", "openai/gpt-oss-20b"] if is_groq else []
+    candidate_models = [resolved_model] + [m for m in fallback_models if m != resolved_model]
 
     messages: list[dict[str, str]] = [
-        {"role": "system", "content": SYSTEM_PROMPT.format(tool_list=_tool_list())},
+        {"role": "system", "content": get_system_prompt(effective_hard_cap).format(tool_list=_tool_list())},
         {"role": "user", "content": user_goal},
     ]
 
     effective_max_steps = max_steps if max_steps != DEFAULT_MAX_STEPS else config.max_steps
 
     for step in range(1, effective_max_steps + 1):
-        try:
-            payload = _prepare_messages_for_llm(messages, max_recent=config.max_context_window)
-            
-            # Apply retry logic with exponential backoff
-            @retry_with_backoff(
-                max_retries=config.max_retries,
-                backoff_factor=config.retry_backoff_factor,
-                initial_delay=config.initial_retry_delay,
-            )
-            def make_api_call():
-                return client.chat.completions.create(
-                    model=resolved_model,
-                    messages=payload,
-                    temperature=config.temperature,
-                    max_tokens=config.max_tokens,
-                    timeout=config.api_timeout,
+        payload = _prepare_messages_for_llm(messages, max_recent=config.max_context_window)
+        response = None
+        last_api_exc = None
+
+        for current_model in list(candidate_models):
+            try:
+                @retry_with_backoff(
+                    max_retries=config.max_retries,
+                    backoff_factor=config.retry_backoff_factor,
+                    initial_delay=config.initial_retry_delay,
                 )
-            
-            response = make_api_call()
-            logger.debug(f"Step {step}: LLM response received ({len(response.choices[0].message.content)} chars)")
-            
-        except RateLimitError as exc:
-            logger.error(f"Rate limit exceeded: {exc}")
-            raise RuntimeError(_quota_message(exc)) from exc
-        except AuthenticationError as exc:
-            logger.error("API authentication failed")
-            raise RuntimeError(
-                "API authentication failed. Check OPENAI_API_KEY / GROQ_API_KEY in .env."
-            ) from exc
-        except APIError as exc:
-            logger.error(f"LLM API error: {exc}")
-            raise RuntimeError(f"LLM API error: {exc}") from exc
-        except RuntimeError as exc:
-            logger.error(f"API call failed after retries: {exc}")
-            raise
+                def make_api_call(_model=current_model):
+                    """Capture current_model via default arg to avoid closure capture bug."""
+                    return client.chat.completions.create(
+                        model=_model,
+                        messages=payload,
+                        temperature=config.temperature,
+                        max_tokens=config.max_tokens,
+                        timeout=config.api_timeout,
+                    )
+
+                response = make_api_call()
+                resolved_model = current_model
+                logger.debug(f"Step {step}: LLM ({current_model}) response received ({len(response.choices[0].message.content)} chars)")
+                break
+            except RateLimitError as exc:
+                last_api_exc = exc
+                logger.warning(f"Rate limit on model {current_model}: {exc}. Checking fallback models...")
+                candidate_models.remove(current_model)
+                if not candidate_models:
+                    logger.error(f"All candidate models rate-limited: {exc}")
+                    raise RuntimeError(_quota_message(exc)) from exc
+            except AuthenticationError as exc:
+                logger.error("API authentication failed")
+                raise RuntimeError(
+                    "API authentication failed. Check OPENAI_API_KEY / GROQ_API_KEY in .env."
+                ) from exc
+            except APIError as exc:
+                last_api_exc = exc
+                logger.warning(f"APIError on model {current_model}: {exc}. Trying fallback...")
+                candidate_models.remove(current_model)
+                if not candidate_models:
+                    logger.error(f"All candidate models failed: {exc}")
+                    raise RuntimeError(f"LLM API error: {exc}") from exc
+            except RuntimeError as exc:
+                last_api_exc = exc
+                logger.warning(f"API call failed after retries on {current_model}: {exc}. Trying fallback...")
+                candidate_models.remove(current_model)
+                if not candidate_models:
+                    raise
+
+        if response is None:
+            raise RuntimeError(f"Failed to obtain LLM response at step {step}: {last_api_exc}")
 
         content = response.choices[0].message.content or ""
         messages.append({"role": "assistant", "content": content})
@@ -465,6 +511,22 @@ def run_react(
                 continue
 
         # Fallback if neither action nor final answer explicitly parsed
+        # Check if this looks like a Thought-only response (model forgot to output Action)
+        thought_detected = _field(content, "Thought") is not None
+        if thought_detected and step < effective_max_steps:
+            # Inject correction so the model continues the loop properly
+            correction = (
+                "You only provided a Thought but no Action. "
+                "You MUST follow FORMAT A and provide:\n"
+                "Thought: ..."
+                "\nAction: <tool name>"
+                "\nAction Input: <tool input>"
+                "\n\nPlease continue the ReAct loop now by providing an Action."
+            )
+            logger.warning(f"Step {step}: Thought-only response detected — injecting correction")
+            messages.append({"role": "user", "content": f"{correction}\nStep {step}/{effective_max_steps}."})
+            continue
+
         if on_step:
             on_step(step, content, None, None, None)
         logger.warning(f"Step {step}: No action or final answer detected")
